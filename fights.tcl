@@ -1943,7 +1943,7 @@ mbind {msg pub} - {.sherdog .fightfinder} ${ns}::searchSherdogFightFinder
 proc parseGoogleForSherdog {tagtype state props body} {
 	variable sherdog
 	set tag "$state$tagtype"
-	if {$tag == "a" && [regexp -nocase {href=\x22?(http://www\.sherdog\.com/fighter/[^\x22 ]+)} $props m url]} {
+	if {$tag == "a" && [regexp -nocase {href=\u0022?(http://www\.sherdog\.com/fighter/[^\u0022 ]+)} $props m url]} {
 		set sherdog(url) $url
 	}
 }
@@ -1969,13 +1969,13 @@ proc parseSherdogFightFinder {tagtype state props body} {
 		set sherdog(history) {}
 	} elseif {$props == {class="module bio_fighter"}} {
 		set sherdog(state) "findH1"
-	} elseif {[string match {class=\x22item*} $props]} {
+	} elseif {[string match "class=\u0022item*" $props]} {
 		set sherdog(state) "profile"
 		if {[info exists sherdog(bio)]} {
 			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
 			array unset sherdog "bio"
 		}
-	} elseif {[string match {class=\x22bio_graph*} $props]} {
+	} elseif {[string match "class=\u0022bio_graph*" $props]} {
 		set sherdog(state) "record"
 		if {[info exists sherdog(bio)]} {
 			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
