@@ -1969,13 +1969,13 @@ proc parseSherdogFightFinder {tagtype state props body} {
 		set sherdog(history) {}
 	} elseif {$props == {class="module bio_fighter"}} {
 		set sherdog(state) "findH1"
-	} elseif {[string match {class="item*} $props]} {
+	} elseif {[string match {class=\x22item*} $props]} {
 		set sherdog(state) "profile"
 		if {[info exists sherdog(bio)]} {
 			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
 			array unset sherdog "bio"
 		}
-	} elseif {[string match {class="bio_graph*} $props]} {
+	} elseif {[string match {class=\x22bio_graph*} $props]} {
 		set sherdog(state) "record"
 		if {[info exists sherdog(bio)]} {
 			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
