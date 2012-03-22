@@ -253,8 +253,8 @@ proc importFights {unick host handle dest text} {
 	send $unick $dest "Importing fights from $url.  Please wait..."
 
 	array unset imports
-	if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseBestFightOdds} error]} {
-		send $unick $dest "Error importing fights: $error"
+	if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseBestFightOdds}]} {
+		send $unick $dest "Connection to '$url' failed. Please try again later."
 		return 1
 	}
 
@@ -1885,14 +1885,15 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 
 		array unset sherdog
 		http::config -useragent "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0)"
-		if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseGoogleForSherdog} error]} {
-			send $unick $dest "Search error: $error"
+		if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseGoogleForSherdog}]} {
+			send $unick $dest "Connection to Google at '$url' failed. Please try again later."
 		} elseif {![info exists sherdog(url)]} {
 			send $unick $dest "Google failed to return a Sherdog Fight Finder URL.\
 				Try again later or change the query a bit."
 		} else {
-			if {[catch {parseHTML [http::data [geturlex $sherdog(url)]] ${ns}::parseSherdogFightFinder} error]} {
-				send $unick $dest "Failed to download Sherdog content at $sherdog(url): $error"
+			if {[catch {parseHTML [http::data [geturlex $sherdog(url)]] ${ns}::parseSherdogFightFinder}]} {
+				send $unick $dest "Connection to Sherdog at '$sherdog(url)' failed.\
+					Please try again later."
 			} elseif {![info exists sherdog(headers)] && ![info exists sherdog(record)]} {
 				send $unick $dest "Failed to parse Sherdog content at $sherdog(url)"
 			} else {
