@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.6"
+variable scriptVersion "1.4.7"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1877,7 +1877,16 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 
 	set query [string trim $text]
 	if {$query == ""} {
-		send $unick $dest "Usage: .sherdog <fighter>"
+		variable poll
+		if {[info exists poll(current)]} {
+			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
+			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
+		} else {
+			send $unick $dest "Usage: .sherdog <fighter> or .sherdog <index>"
+		}
+	} elseif {[string is integer $query] && [getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
+		searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1))
+		searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2))
 	} else {
 		set url "http://www.google.com/search?"
 		append url [http::formatQuery num 1 as_qdr all as_sitesearch www.sherdog.com as_q "\"fight finder\" $query"]
@@ -2100,7 +2109,7 @@ proc help {unick host handle dest text} {
 		- {.streaks[offset[,limit]] [maxStreak] ........... Show current win streak rankings}
 		- {.topstreaks .................................... Show top 5 win streaks of all time}
 		- {.worststreaks .................................. Show the 5 worst streaks of all time}
-		- {.sherdog <fighter> ............................. Display Sherdog Fight Finder records}
+		- {.sherdog [fighter][index]....................... Display Sherdog Fight Finder records}
 		- {.help .......................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
