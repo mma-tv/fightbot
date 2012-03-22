@@ -2109,8 +2109,7 @@ proc help {unick host handle dest text} {
 		- {.streaks[offset[,limit]] [maxStreak] ........... Show current win streak rankings}
 		- {.topstreaks .................................... Show top 5 win streaks of all time}
 		- {.worststreaks .................................. Show the 5 worst streaks of all time}
-		- {.sherdog [fighter|index] ....................... Display 
-Sherdog Fight Finder records}
+		- {.sherdog [fighter|index] ....................... Display Sherdog Fight Finder records}
 		- {.help .......................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
