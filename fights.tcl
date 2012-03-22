@@ -1943,7 +1943,7 @@ mbind {msg pub} - {.sherdog .fightfinder} ${ns}::searchSherdogFightFinder
 proc parseGoogleForSherdog {tagtype state props body} {
 	variable sherdog
 	set tag "$state$tagtype"
-	if {$tag == "a" && [regexp -nocase {href="?(http://www\.sherdog\.com/fighter/[^" ]+)} $props m url]} {
+	if {$tag == "a" && [regexp -nocase {href=\x22?(http://www\.sherdog\.com/fighter/[^\x22 ]+)} $props m url]} {
 		set sherdog(url) $url
 	}
 }
