@@ -8,7 +8,7 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Feb 13, 2012
+#  Last Update: Mar 21, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.4"
+variable scriptVersion "1.4.5"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2024,7 +2024,7 @@ proc parseSherdogFightFinder {tagtype state props body} {
 			}
 		}
 		history {
-			if {$tag == "/table"} {
+			if {$tag == "/table" || ($tag == "h2" && $body == "Amateur Fights")} {
 				set sherdog(state) ""
 				set sherdog(done) 1
 			} else {
