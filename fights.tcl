@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.5"
+variable scriptVersion "1.4.6"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1940,8 +1940,16 @@ proc parseGoogleForSherdog {tagtype state props body} {
 
 proc parseSherdogFightFinder {tagtype state props body} {
 	variable sherdog
-
 	set tag "$state$tagtype"
+
+	if {$tag == "h2" && $body == "Amateur Fights"} {
+		set sherdog(state) ""
+		set sherdog(done) 1
+		return
+	} elseif {[info exists sherdog(done)]} {
+		return
+	}
+
 	if {$tag == "hmstart"} {
 		array unset sherdog "done"
 		set sherdog(state) ""
@@ -1968,16 +1976,16 @@ proc parseSherdogFightFinder {tagtype state props body} {
 			array unset sherdog "stat"
 		}
 	} elseif {$props == {class="module fight_history"}} {
-			set sherdog(state) "startHistory"
-			if {[info exists sherdog(stat)]} {
-				lappend sherdog(record) [string range $sherdog(stat) 1 end]
-				array unset sherdog "stat"
-			}
+		set sherdog(state) "startHistory"
+		if {[info exists sherdog(stat)]} {
+			lappend sherdog(record) [string range $sherdog(stat) 1 end]
+			array unset sherdog "stat"
+		}
 	} elseif {$tag == "tr" && $props == {class="odd"} || $props == {class="even"}} {
 		if {$sherdog(state) == "startHistory"} {
 			set sherdog(state) "history"
 		}
-	} elseif {$tag == "/tr" && $sherdog(state) == "history" && ![info exists sherdog(done)]} {
+	} elseif {$tag == "/tr" && $sherdog(state) == "history"} {
 		if {[info exists sherdog(fight)]} {
 			if {[info exists sherdog(history)]} {
 				set sherdog(history) [linsert $sherdog(history) 0 $sherdog(fight)]
@@ -2024,7 +2032,7 @@ proc parseSherdogFightFinder {tagtype state props body} {
 			}
 		}
 		history {
-			if {$tag == "/table" || ($tag == "h2" && $body == "Amateur Fights")} {
+			if {$tag == "/table"} {
 				set sherdog(state) ""
 				set sherdog(done) 1
 			} else {
