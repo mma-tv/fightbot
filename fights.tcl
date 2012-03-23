@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.7"
+variable scriptVersion "1.4.8"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1884,9 +1884,11 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 		} else {
 			send $unick $dest "Usage: .sherdog <fighter> or .sherdog <index>"
 		}
-	} elseif {[string is integer $query] && [getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
-		searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
-		searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
+	} elseif {[string is integer $query]} {
+		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
+			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
+			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
+		}
 	} else {
 		set url "http://www.google.com/search?"
 		append url [http::formatQuery num 1 as_qdr all as_sitesearch www.sherdog.com as_q "\"fight finder\" $query"]
