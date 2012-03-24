@@ -11,6 +11,7 @@
 #
 ####################################################################
 
+package require uri
 package provide util 1.0
 
 namespace eval ::util:: {
