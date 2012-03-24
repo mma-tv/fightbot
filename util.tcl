@@ -23,7 +23,7 @@ namespace eval ::util:: {
 	variable ns [namespace current]
 	variable maxMessageLen 510
 	variable maxLineWrap   5  ;# max lines to wrap when text is too long
-	variable floodSupport  1
+	variable floodSupport  0
 	variable tz            ":America/New_York"  ;# "-0500"
 
 	if {[catch {clock scan 0 -timezone $tz}]} {
