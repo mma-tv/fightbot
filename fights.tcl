@@ -8,7 +8,7 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Mar 22, 2012
+#  Last Update: Mar 24, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -289,7 +289,7 @@ proc importFights {unick host handle dest text} {
 	}
 
 	if {$dest != ""} {
-		listEvents $unick $host $handle $dest ""
+		listEvents $unick $host $handle $dest ".findevent"
 	}
 
 	array unset imports
@@ -491,7 +491,7 @@ proc event {unick host handle dest index} {
 	if {[selectEvent $unick $host "" $index]} {
 		listFights $unick $host $handle $dest
 	} else {
-		listEvents $unick $host $handle $dest ""
+		listEvents $unick $host $handle $dest ".findevent"
 		if {$index != ""} {
 			send $unick $dest " "
 			send $unick $dest "The upcoming events list was reloaded.\
