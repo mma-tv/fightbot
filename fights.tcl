@@ -1562,7 +1562,7 @@ mbind {msg pub} - {.picks .findpick .findpicks} ${ns}::findPicks
 proc whoPicked {unick host handle dest query} {
 	if {![onPollChan $unick]} { return 0 }
 
-	if {[string is integer $query] && $query!=""} { ## .whopicked <index>
+	if {[string is integer -strict $query] { # .whopicked <index>
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
 			whoPicked $unick $host $handle $dest $fight(fighter1)
 			whoPicked $unick $host $handle $dest $fight(fighter2)
@@ -1904,7 +1904,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
 		}
-	} elseif {[regexp -nocase {^(\d+)([ab])$} $query m fightIndex fighterId]} {
+	} elseif {[regexp -nocase {^(\d\d?)([ab])$} $query m fightIndex fighterId]} {
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
 			set fighter [expr {[string tolower $fighterId] == "a" ? "fighter1" : "fighter2"}] 
 			searchSherdogFightFinder $unick $host $handle $dest $fight($fighter)
