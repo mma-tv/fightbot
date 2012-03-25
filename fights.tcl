@@ -1562,7 +1562,12 @@ mbind {msg pub} - {.picks .findpick .findpicks} ${ns}::findPicks
 proc whoPicked {unick host handle dest query} {
 	if {![onPollChan $unick]} { return 0 }
 
-	if {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
+	if {[string is integer -strict $query]} { # .whopicked <index>
+		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
+			whoPicked $unick $host $handle $dest $fight(fighter1)
+			whoPicked $unick $host $handle $dest $fight(fighter2)
+		}
+	} elseif {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
 				$query m fighter1 searchType fighter2 eventRE]
 	} {
 		send $unick $dest {Usage: .whopicked <fighter1> [<vs | over> fighter2][@ eventRE]}
@@ -1874,20 +1879,32 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 
 	variable ns
 	variable sherdog
-
+	variable poll
+	set showUsage 0
 	set query [string trim $text]
 	if {$query == ""} {
-		variable poll
 		if {[info exists poll(current)]} {
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
 		} else {
-			send $unick $dest "Usage: .sherdog <fighter> or .sherdog <index>"
+			set showUsage 1
+		}
+	} elseif {[regexp {^(!)[0-9]$} $query]} {
+		if {[info exists poll(current)]} {
+			set fighter [expr {[string tolower $query] == "!1" ? "fighter1" : "fighter2"}] 
+			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),$fighter)
+		} else {
+			set showUsage 1
 		}
 	} elseif {[string is integer $query]} {
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
+		}
+	} elseif {[regexp -nocase {^(\d\d?)([ab])$} $query m fightIndex fighterId]} {
+		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
+			set fighter [expr {[string tolower $fighterId] == "a" ? "fighter1" : "fighter2"}] 
+			searchSherdogFightFinder $unick $host $handle $dest $fight($fighter)
 		}
 	} else {
 		set url "http://www.google.com/search?"
@@ -1936,7 +1953,9 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			}
 		}
 	}
-
+	if {$showUsage} {
+		send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
+	}
 	array unset sherdog
 	return 1
 }
@@ -2101,7 +2120,7 @@ proc help {unick host handle dest text} {
 		@ {.saydraw [notes] ............................... Alias for .sayresult draw}
 		@ {.saync [notes] ................................. Alias for .sayresult nc}
 		@ {.saynd [notes] ................................. Alias for .sayresult nd}
-		- {.whopicked <f1> [<vs|over> f2][@ eventRE] ...... Show who picked a particular fighter}
+		- {.whopicked <f1|index>[<vs|over> f2][@ eventRE] . Show who picked a particular fighter}
 		- {.picks <user> [f1RE [vs f2RE]][@ eventRE] ...... Show user picks for matching events/fights}
 		- {.pick <index><a|b>[~][ <indexN><a|b>[~]] ....... Pick fighter at index to win from selected event}
 		- {.delpick <index> ............................... Delete pick for selected event}
@@ -2111,7 +2130,7 @@ proc help {unick host handle dest text} {
 		- {.streaks[offset[,limit]] [maxStreak] ........... Show current win streak rankings}
 		- {.topstreaks .................................... Show top 5 win streaks of all time}
 		- {.worststreaks .................................. Show the 5 worst streaks of all time}
-		- {.sherdog [fighter|index] ....................... Display Sherdog Fight Finder records}
+		- {.sherdog [fighter|index[a|b]|!1|!2]............. Display Sherdog Fight Finder records}
 		- {.help .......................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
