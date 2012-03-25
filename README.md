@@ -47,7 +47,7 @@ Miscellaneous
      ``cd ~/tcllib && find * -maxdepth 0 -type d -not -name uri -exec rm -rf {} \;``
 
   4. Set your TCLLIBPATH to ~/tcllib in your .bashrc or .bash_profile file.
-     * Example: `TCLLIBPATH=~/tcllib`
+     * Example: `export TCLLIBPATH=~/tcllib`
   5. Log out and log back in (or source your .bashrc file again)
 
 
