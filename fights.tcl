@@ -1904,16 +1904,10 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
 		}
-	} elseif {[regexp {^(?:\d+[a-z])} $lowerquery]} {
-		regsub -all {[\s,;:|a-z]+} $lowerquery "" fightnum
-		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightnum] } {
-			if {[regexp {^(?:\d+[a])} $lowerquery]} { 
-				searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
-			} elseif {[regexp {^(?:\d+[b])} $lowerquery]} { 
-				searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2) 
-			} else {
-				send $unick $dest "$lowerquery is not a valid fighter, Usage : .sherdog <index>\[a|b\]"
-			}
+	} elseif {[regexp -nocase {^(\d+)([ab])$} $query m fightIndex fighterId]} {
+		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
+			set fighter [expr {[string tolower $fighterId] == "a" ? "fighter1" : "fighter2"}] 
+			searchSherdogFightFinder $unick $host $handle $dest $fight($fighter)
 		}
 	} else {
 		set url "http://www.google.com/search?"
