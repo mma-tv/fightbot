@@ -1880,6 +1880,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 	variable ns
 	variable sherdog
 	variable poll
+	set showUsage 0
 	set query [string trim $text]
 	if {$query == ""} {
 		if {[info exists poll(current)]} {
@@ -1888,9 +1889,9 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 		} else {
 			set showUsage 1
 		}
-	} elseif {[regexp -nocase {^[ab]$} $query]} {
+	} elseif {[regexp {^(!)[0-9]$} $query]} {
 		if {[info exists poll(current)]} {
-			set fighter [expr {[string tolower $query] == "a" ? "fighter1" : "fighter2"}] 
+			set fighter [expr {[string tolower $query] == "!1" ? "fighter1" : "fighter2"}] 
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),$fighter)
 		} else {
 			set showUsage 1
@@ -2129,7 +2130,7 @@ proc help {unick host handle dest text} {
 		- {.streaks[offset[,limit]] [maxStreak] ........... Show current win streak rankings}
 		- {.topstreaks .................................... Show top 5 win streaks of all time}
 		- {.worststreaks .................................. Show the 5 worst streaks of all time}
-		- {.sherdog [fighter|index[a|b]|a|b]............... Display Sherdog Fight Finder records}
+		- {.sherdog [fighter|index[a|b]|!1|!2]............. Display Sherdog Fight Finder records}
 		- {.help .......................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
