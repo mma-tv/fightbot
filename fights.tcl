@@ -1887,7 +1887,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
 		} else {
-			send $unick $dest "No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>\[a|b\]"
+			send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
 		}
 	} elseif {$lowerquery == "a" || $lowerquery == "b"} {
 		if {[info exists poll(current)]} {
@@ -1897,7 +1897,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 				searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
 			}
 		} else {
-			send $unick $dest "No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>\[a|b\]"
+			send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
 		}
 	} elseif {[string is integer $query]} {
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
