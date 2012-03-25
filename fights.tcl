@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.9"
+variable scriptVersion "1.4.10"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1874,30 +1874,40 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 
 	variable ns
 	variable sherdog
-
+	variable poll
 	set query [string trim $text]
+	set lowerquery [string tolower $query]
 	if {$query == ""} {
-		variable poll
 		if {[info exists poll(current)]} {
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
 		} else {
-			send $unick $dest "Usage: .sherdog <fighter> or .sherdog <index>\[a|b\]"
+			send $unick $dest "No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>\[a|b\]"
+		}
+	} elseif {$lowerquery == "a" || $lowerquery == "b"} {
+		if {[info exists poll(current)]} {
+			if {$lowerquery == "a"} {
+				searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
+			} else {
+				searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
+			}
+		} else {
+			send $unick $dest "No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>\[a|b\]"
 		}
 	} elseif {[string is integer $query]} {
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
 			searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2)
 		}
-	} elseif {[regexp {^(?:\d+[a-z])} $text]} {
-		regsub -all {[\s,;:|a-z]+} $query "" fightnum
+	} elseif {[regexp {^(?:\d+[a-z])} $lowerquery]} {
+		regsub -all {[\s,;:|a-z]+} $lowerquery "" fightnum
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightnum] } {
-			if {[regexp {^(?:\d+[a])+$} $text]} { 
+			if {[regexp {^(?:\d+[a])} $lowerquery]} { 
 				searchSherdogFightFinder $unick $host $handle $dest $fight(fighter1)
-			} elseif {[regexp {^(?:\d+[b])+$} $text]} { 
+			} elseif {[regexp {^(?:\d+[b])} $lowerquery]} { 
 				searchSherdogFightFinder $unick $host $handle $dest $fight(fighter2) 
 			} else {
-				send $unick $dest "$text is not a valid fighter, Usage : .sherdog <index>\[a|b\]"
+				send $unick $dest "$lowerquery is not a valid fighter, Usage : .sherdog <index>\[a|b\]"
 			}
 		}
 	} else {
@@ -2122,7 +2132,7 @@ proc help {unick host handle dest text} {
 		- {.streaks[offset[,limit]] [maxStreak] ........... Show current win streak rankings}
 		- {.topstreaks .................................... Show top 5 win streaks of all time}
 		- {.worststreaks .................................. Show the 5 worst streaks of all time}
-		- {.sherdog [fighter|index[a|b]]................... Display Sherdog Fight Finder records}
+		- {.sherdog [fighter|index[a|b]|a|b]............... Display Sherdog Fight Finder records}
 		- {.help .......................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
