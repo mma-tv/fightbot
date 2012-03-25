@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.10"
+variable scriptVersion "1.4.11"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1562,7 +1562,12 @@ mbind {msg pub} - {.picks .findpick .findpicks} ${ns}::findPicks
 proc whoPicked {unick host handle dest query} {
 	if {![onPollChan $unick]} { return 0 }
 
-	if {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
+	if {[string is integer $query] && $query!=""} { ## .whopicked <index>
+		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
+			whoPicked $unick $host $handle $dest $fight(fighter1)
+			whoPicked $unick $host $handle $dest $fight(fighter2)
+		}
+	} elseif {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
 				$query m fighter1 searchType fighter2 eventRE]
 	} {
 		send $unick $dest {Usage: .whopicked <fighter1> [<vs | over> fighter2][@ eventRE]}
@@ -2122,7 +2127,7 @@ proc help {unick host handle dest text} {
 		@ {.saydraw [notes] ............................... Alias for .sayresult draw}
 		@ {.saync [notes] ................................. Alias for .sayresult nc}
 		@ {.saynd [notes] ................................. Alias for .sayresult nd}
-		- {.whopicked <f1> [<vs|over> f2][@ eventRE] ...... Show who picked a particular fighter}
+		- {.whopicked <f1|index>[<vs|over> f2][@ eventRE] . Show who picked a particular fighter}
 		- {.picks <user> [f1RE [vs f2RE]][@ eventRE] ...... Show user picks for matching events/fights}
 		- {.pick <index><a|b>[~][ <indexN><a|b>[~]] ....... Pick fighter at index to win from selected event}
 		- {.delpick <index> ............................... Delete pick for selected event}
