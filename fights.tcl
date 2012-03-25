@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.4.11"
+variable scriptVersion "1.4.9"
 variable ns [namespace current]
 variable poll
 variable pollTimer
