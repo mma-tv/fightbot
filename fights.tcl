@@ -1562,7 +1562,7 @@ mbind {msg pub} - {.picks .findpick .findpicks} ${ns}::findPicks
 proc whoPicked {unick host handle dest query} {
 	if {![onPollChan $unick]} { return 0 }
 
-	if {[string is integer -strict $query] { # .whopicked <index>
+	if {[string is integer -strict $query]} { # .whopicked <index>
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
 			whoPicked $unick $host $handle $dest $fight(fighter1)
 			whoPicked $unick $host $handle $dest $fight(fighter2)
@@ -1881,7 +1881,6 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 	variable sherdog
 	variable poll
 	set query [string trim $text]
-	set lowerquery [string tolower $query]
 	if {$query == ""} {
 		if {[info exists poll(current)]} {
 			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
@@ -1889,13 +1888,10 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 		} else {
 			send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
 		}
-	} elseif {$lowerquery == "a" || $lowerquery == "b"} {
+	} elseif {[regexp -nocase {^[ab]$} $query]} {
 		if {[info exists poll(current)]} {
-			if {$lowerquery == "a"} {
-				searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter1)
-			} else {
-				searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),fighter2)
-			}
+			set fighter [expr {[string tolower $query] == "a" ? "fighter1" : "fighter2"}] 
+			searchSherdogFightFinder $unick $host $handle $dest $poll($poll(current),$fighter)
 		} else {
 			send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
 		}
