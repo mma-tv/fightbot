@@ -8,7 +8,7 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Mar 25, 2012
+#  Last Update: Mar 27, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.0"
+variable scriptVersion "1.5.1"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1562,7 +1562,7 @@ mbind {msg pub} - {.picks .findpick .findpicks} ${ns}::findPicks
 proc whoPicked {unick host handle dest query} {
 	if {![onPollChan $unick]} { return 0 }
 
-	if {[string is integer -strict $query]} { # .whopicked <index>
+	if {[string is integer -strict $query]} {  ;# .whopicked <index>
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
 			whoPicked $unick $host $handle $dest "$fight(fighter1) vs. $fight(fighter2)"
 		}
