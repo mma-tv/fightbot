@@ -1564,8 +1564,7 @@ proc whoPicked {unick host handle dest query} {
 
 	if {[string is integer -strict $query]} { # .whopicked <index>
 		if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
-			whoPicked $unick $host $handle $dest $fight(fighter1)
-			whoPicked $unick $host $handle $dest $fight(fighter2)
+			whoPicked $unick $host $handle $dest "$fight(fighter1) vs. $fight(fighter2)"
 		}
 	} elseif {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
 				$query m fighter1 searchType fighter2 eventRE]
