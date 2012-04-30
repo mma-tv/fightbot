@@ -8,7 +8,7 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Mar 27, 2012
+#  Last Update: Apr 29, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.1"
+variable scriptVersion "1.5.2"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -327,7 +327,7 @@ proc parseBestFightOdds {tagtype state props body} {
 		}
 		date {
 			if {$tag == "/a"} {
-				regsub -all {^[-\s]+|(?:st|nd|rd|th)$} $body "" date
+				regsub -all {^[-\s]+|&nbsp;|(?:st|nd|rd|th)$} $body "" date
 				if {[set date [string trim $date]] == ""} {
 					set date [clock format [clock scan "6 months" -base [unixtime] -timezone [tz]] -format "%Y-%m-%d 00:00:00" -gmt 1]
 				} else {
