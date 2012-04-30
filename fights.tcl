@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.2"
+variable scriptVersion "1.5.3"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -331,26 +331,25 @@ proc parseBestFightOdds {tagtype state props body} {
 				if {[set date [string trim $date]] == ""} {
 					set date [clock format [clock scan "6 months" -base [unixtime] -timezone [tz]] -format "%Y-%m-%d 00:00:00" -gmt 1]
 				} else {
-					if {[string length $date] < 7} {
-						set tz ":America/New_York"
-						if {[catch {clock scan 0 -timezone $tz}]} {
-							set tz "-0500"  ;# default to EST
-						}
-						# if assuming current year puts the date more than 1 week before now, assume next year
-						if {[expr [clock scan $date -base [unixtime] -timezone $tz] - [unixtime]] < -[expr 7 * 24 * 60 * 60]} {
-							append date [clock format [clock scan "1 year" -base [unixtime] -timezone $tz] -format ", %Y" -gmt 1]
-						}
-
-						switch -glob -nocase -- [string range $imports(event) 6 end] {
-							UFC* {append date " 9:00pm"}
-							Strikeforce* {append date " 10:00pm"}
-							Bellator* {append date " 8:00pm"}
-							DREAM* - K1* - "K-1*" - Sengoku* {append date " 3:00am"}
-							default {append date " 6:00pm"}
-						}
-						catch {set date [clock format [clock scan $date -timezone $tz]\
-							-format "%Y-%m-%d %H:%M:%S" -timezone [tz]]}
+					set tz ":America/New_York"
+					if {[catch {clock scan 0 -timezone $tz}]} {
+						set tz "-0500"  ;# default to EST
 					}
+					# if assuming current year puts the date more than 1 week before now, assume next year
+					if {[expr [clock scan $date -base [unixtime] -timezone $tz] - [unixtime]] < -[expr 7 * 24 * 60 * 60]} {
+						append date [clock format [clock scan "1 year" -base [unixtime] -timezone $tz] -format ", %Y" -gmt 1]
+					}
+
+					switch -glob -nocase -- [string range $imports(event) 6 end] {
+						"UFC: The Ultimate Fighter*" {append date " 10:00pm"}
+						"UFC*" {append date " 7:00pm"}
+						Strikeforce* {append date " 10:00pm"}
+						Bellator* {append date " 8:00pm"}
+						DREAM* - K1* - "K-1*" - Sengoku* {append date " 3:00am"}
+						default {append date " 6:00pm"}
+					}
+					catch {set date [clock format [clock scan $date -timezone $tz]\
+						-format "%Y-%m-%d %H:%M:%S" -timezone [tz]]}
 					if {[catch {set date [toGMT $date]}]} {
 						set date [now]
 					}
