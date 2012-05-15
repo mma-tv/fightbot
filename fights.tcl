@@ -8,7 +8,7 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Apr 29, 2012
+#  Last Update: May 14, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.3"
+variable scriptVersion "1.5.4"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1342,7 +1342,7 @@ proc announceResult {unick host handle dest result} {
 						append congrats " The previous record was held by [join $oldStreakLeaders ", "]\
 							with $oldStreaks(best) straight wins."
 					}
-					append congrats " Type [b].topstreaks[/b] for the best win streaks of all time."
+					append congrats " Type [b].topstreaks[/b] for the best win streakers of all time."
 					lappend messages $congrats
 				}
 				if {[info exists newRankLeaders]} {
@@ -1872,7 +1872,7 @@ proc bestStreaks {unick host handle dest text} {
 	}]
 	set totalRecords [expr [llength $streaks] / 3]
 	if {$totalRecords} {
-		send $unick $dest "[b][u]TOP 5 WIN STREAKS OF ALL TIME[/u][/b]"
+		send $unick $dest "[b][u]TOP 5 WIN STREAKERS OF ALL TIME[/u][/b]"
 		set winsFormat "%[string length [lindex $streaks 1]]d"
 		set i 0
 		foreach {nicks bestStreak date} $streaks {
@@ -1899,7 +1899,7 @@ proc worstStreaks {unick host handle dest text} {
 	}]
 	set totalRecords [expr [llength $streaks] / 3]
 	if {$totalRecords} {
-		send $unick $dest "[b][u]THE 5 WORST STREAKS OF ALL TIME[/u][/b]"
+		send $unick $dest "[b][u]THE 5 WORST STREAKERS OF ALL TIME[/u][/b]"
 		set lossesFormat "%[string length [lindex $streaks 1]]d"
 		set i 0
 		foreach {nicks worstStreak date} $streaks {
@@ -2170,8 +2170,8 @@ proc help {unick host handle dest text} {
 		- {.stats [user] ......................................................... Show stats for specified user}
 		- {.rankings[offset[,limit]] [maxRank] ................................... Show fight pick rankings}
 		- {.streaks[offset[,limit]] [maxStreak] .................................. Show current win streak rankings}
-		- {.topstreaks ........................................................... Show top 5 win streaks of all time}
-		- {.worststreaks ......................................................... Show the 5 worst streaks of all time}
+		- {.topstreaks ........................................................... Show top 5 win streakers of all time}
+		- {.worststreaks ......................................................... Show the 5 worst streakers of all time}
 		- {.sherdog [fighter|index[a|b]|!1|!2] ................................... Display Sherdog Fight Finder records}
 		- {.help ................................................................. Display this help information}
 		- { }} [list\
