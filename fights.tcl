@@ -1598,7 +1598,7 @@ proc whoPicked {unick host handle dest query} {
 		}
 		lappend sql AND event_name REGEXP :eventRE GROUP BY fight_id, pick
 		db eval $sql {
-			regsub {,} $nicks " " picks($eventDate\n$eventName\n$pick\n$opponent)
+			regsub -all {,} $nicks " " picks($eventDate\n$eventName\n$pick\n$opponent)
 			append picks($eventDate\n$eventName\n$pick\n$opponent) " "
 		}
 		if {[info exists poll(current)]} {
