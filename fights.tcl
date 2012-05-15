@@ -39,7 +39,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.5"
+variable scriptVersion "1.5.6"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2135,45 +2135,45 @@ proc help {unick host handle dest text} {
 	send $unick $dest "[b][u]FIGHT POLL $scriptVersion HELP[/u][/b]"
 
 	foreach {access line} [concat {
-		@ {.importfights ......................................................... Import fights and betting lines from the web}
-		- {.events ............................................................... Show all upcoming fight events}
-		- {.event <index> ........................................................ Select event as command context}
-		@ {.addevent <eventName>[; yyyy-MM-dd HH:mm Z] ........................... Add fight event to be held on specified date}
-		@ {.delevent <index> ..................................................... Delete fight event at specified index}
-		@ {.renameevent <index> <newEventName> ................................... Rename event at specified index}
-		@ {.mergeevents <oldEventIndex> <newEventIndex> .......................... Merge events (new event is deleted; old one is renamed)}
-		@ {.endevent ............................................................. Remove event from upcoming events list}
-		- {.findevent[offset[,limit]] <eventRE> .................................. Find an event matching the given regex}
-		- {.notes [id] ........................................................... Show notes for selected or specified event}
-		@ {.setnotes <text> ...................................................... Set notes for selected event}
-		@ {.clearnotes ........................................................... Clear notes from selected event}
-		@ {.sayevent ............................................................. Announce selected event}
-		- {.fights [user] ........................................................ List fights for selected event with picks from user}
-		@ {.addfight f1 [<+-odds1>] vs f2 [<+-odds2>] ............................ Add fight to selected event}
-		@ {.delfight <index> ..................................................... Delete fight at index from selected event}
-		@ {.renamefighter <index><a|b> <newFighterName> .......................... Rename specified fighter}
-		@ {.lock <index> ......................................................... Lock fight at index to disallow .pick on it}
-		@ {.unlock <index> ....................................................... Unlock fight at index to allow .pick on it}
-		- {.findfight [f1RE [vs f2RE]][@ eventRE] ................................ Show info for matching fights}
-		@ {.poll <index> ......................................................... Start polling for selected fight index}
-		@ {.stop ................................................................. Stop polling}
-		@ {.setresult <index> <1|2|draw|nc|nd> [notes] ........................... Set result of fight at index}
-		@ {.sayresult <1|2|draw|nc|nd> [notes] ................................... Announce result of last announced fight}
-		@ {.saydraw [notes] ...................................................... Alias for .sayresult draw}
-		@ {.saync [notes] ........................................................ Alias for .sayresult nc}
-		@ {.saynd [notes] ........................................................ Alias for .sayresult nd}
-		- {.whopicked [<fighter1> [<vs | over> fighter2][@ eventRE] | <!1 | !2>] . Show who picked a particular fighter}
-		- {.picks <user> [f1RE [vs f2RE]][@ eventRE] ............................. Show user picks for matching events/fights}
-		- {.pick <index><a|b>[~][ <indexN><a|b>[~]] .............................. Pick fighter at index to win from selected event}
-		- {.delpick <index> ...................................................... Delete pick for selected event}
-		@ {.merge <targetNick> <nick1>[ nickN] ................................... Delete nick(s) and merge their picks/stats into target}
-		- {.stats [user] ......................................................... Show stats for specified user}
-		- {.rankings[offset[,limit]] [maxRank] ................................... Show fight pick rankings}
-		- {.streaks[offset[,limit]] [maxStreak] .................................. Show current win streak rankings}
-		- {.topstreaks ........................................................... Show top 5 win streakers of all time}
-		- {.worststreaks ......................................................... Show the 5 worst streakers of all time}
-		- {.sherdog [fighter|index[a|b]|!1|!2] ................................... Display Sherdog Fight Finder records}
-		- {.help ................................................................. Display this help information}
+		@ {.importfights ........................................... Import fights and betting lines from the web}
+		- {.events ................................................. Show all upcoming fight events}
+		- {.event <index> .......................................... Select event as command context}
+		@ {.addevent <eventName>[; yyyy-MM-dd HH:mm Z] ............. Add fight event to be held on specified date}
+		@ {.delevent <index> ....................................... Delete fight event at specified index}
+		@ {.renameevent <index> <newEventName> ..................... Rename event at specified index}
+		@ {.mergeevents <oldEventIndex> <newEventIndex> ............ Merge events (new event is deleted; old one is renamed)}
+		@ {.endevent ............................................... Remove event from upcoming events list}
+		- {.findevent[offset[,limit]] <eventRE> .................... Find an event matching the given regex}
+		- {.notes [id] ............................................. Show notes for selected or specified event}
+		@ {.setnotes <text> ........................................ Set notes for selected event}
+		@ {.clearnotes ............................................. Clear notes from selected event}
+		@ {.sayevent ............................................... Announce selected event}
+		- {.fights [user] .......................................... List fights for selected event with picks from user}
+		@ {.addfight f1 [<+-odds1>] vs f2 [<+-odds2>] .............. Add fight to selected event}
+		@ {.delfight <index> ....................................... Delete fight at index from selected event}
+		@ {.renamefighter <index><a|b> <newFighterName> ............ Rename specified fighter}
+		@ {.lock <index> ........................................... Lock fight at index to disallow .pick on it}
+		@ {.unlock <index> ......................................... Unlock fight at index to allow .pick on it}
+		- {.findfight [f1RE [vs f2RE]][@ eventRE] .................. Show info for matching fights}
+		@ {.poll <index> ........................................... Start polling for selected fight index}
+		@ {.stop ................................................... Stop polling}
+		@ {.setresult <index> <1|2|draw|nc|nd> [notes] ............. Set result of fight at index}
+		@ {.sayresult <1|2|draw|nc|nd> [notes] ..................... Announce result of last announced fight}
+		@ {.saydraw [notes] ........................................ Alias for .sayresult draw}
+		@ {.saync [notes] .......................................... Alias for .sayresult nc}
+		@ {.saynd [notes] .......................................... Alias for .sayresult nd}
+		- {.whopicked [<f1> [<vs|over> f2][@ eventRE] | <!1|!2>] ... Show who picked a particular fighter}
+		- {.picks <user> [f1RE [vs f2RE]][@ eventRE] ............... Show user picks for matching events/fights}
+		- {.pick <index><a|b>[~][ <indexN><a|b>[~]] ................ Pick fighter at index to win from selected event}
+		- {.delpick <index> ........................................ Delete pick for selected event}
+		@ {.merge <targetNick> <nick1>[ nickN] ..................... Delete nick(s) and merge their picks/stats into target}
+		- {.stats [user] ........................................... Show stats for specified user}
+		- {.rankings[offset[,limit]] [maxRank] ..................... Show fight pick rankings}
+		- {.streaks[offset[,limit]] [maxStreak] .................... Show current win streak rankings}
+		- {.topstreaks ............................................. Show top 5 win streakers of all time}
+		- {.worststreaks ........................................... Show the 5 worst streakers of all time}
+		- {.sherdog [fighter|index[a|b]|!1|!2] ..................... Display Sherdog Fight Finder records}
+		- {.help ................................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
 		- { }
