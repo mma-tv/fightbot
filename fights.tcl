@@ -2139,7 +2139,7 @@ proc best {unick host handle dest text} {
 		set rows [db eval {SELECT id, name FROM events WHERE name REGEXP :eventName}]
 		set numEvents [expr [llength $rows] / 2]
 		if {$numEvents >= 2} {
-			send $unick $dest "Event name too broad, please refine your search"
+			send $unick $dest "Multiple events found, refine your search"
 			return 1
 		} elseif {$numEvents <= 0} {
 			send $unick $dest "Event $eventName not found"
@@ -2153,25 +2153,21 @@ proc best {unick host handle dest text} {
 	}
 	set rows [db eval { SELECT nick, vote, pick_result, event_name FROM vw_picks \
 		WHERE pick_result IS NOT NULL AND event_id = :evid ORDER BY user_id}]
-	if {$rows<=0} { send $unick $dest "Nobody have picked for this event, or the results havent been published yet" ; return 1 }
+	if {$rows<=0} { 
+		send $unick $dest "Nobody have picked for this event, or the results havent been published yet"
+		return 1 
+	}
 	set pickList [list]
 	foreach {nick vote result event_name} $rows {
 		set pick [list]
 		set nickIndex [lsearch -index 0 $pickList $nick]
 		if {$nickIndex < 0} {
 			set nickIndex [llength $pickList]
-			lappend pick $nick
-			lappend pick 0
-			lappend pick 0
+			lappend pick $nick 0 0
 			lappend pickList $pick
 		}
 		if {$vote} {
-			set index 0
-			if {$result == 0} {
-				set index 2
-			} elseif {$result == 1} {
-				set index 1
-			}
+			set index [expr {$result == 1 ? 1 : 2}]
 			set value [lindex $pickList $nickIndex $index]
 			incr value
 			lset pickList $nickIndex $index $value
@@ -2181,10 +2177,10 @@ proc best {unick host handle dest text} {
 	set counter 0
 	send $unick $dest "[b][u]TOP 20 PICKERS @ $event_name[/u][/b]"
 	send $unick $dest "[b]NICK        WINS  LOSSES[/b]"
-	foreach {pick} $pickList {
+	foreach pick $pickList {
 		incr counter
 		foreach {nick wins losses} $pick {
-			send $unick $dest [format "%-12s %-5d %-5d" $nick $wins $losses]
+			send $unick $dest [format "%-12s %-6d %-6d" $nick $wins $losses]
 		}
 		if {$counter==20} { break }
 	}
