@@ -2153,7 +2153,7 @@ proc best {unick host handle dest text} {
 	}
 	set rows [db eval { SELECT nick, vote, pick_result, event_name FROM vw_picks \
 		WHERE pick_result IS NOT NULL AND event_id = :evid ORDER BY user_id}]
-	if {![info exist rows]} { send $unick $dest "Nobody have picked for this event, or the results havent been published yet" ; return 1 }
+	if {$rows<=0} { send $unick $dest "Nobody have picked for this event, or the results havent been published yet" ; return 1 }
 	set pickList [list]
 	foreach {nick vote result event_name} $rows {
 		set pick [list]
