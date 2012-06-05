@@ -7,8 +7,10 @@
 #
 # Author: makk@EFnet
 #
+# Contributors: wims@EFnet
+#
 # Release Date: May 14, 2010
-#  Last Update: May 15, 2012
+#  Last Update: Jun  5, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -39,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.6"
+variable scriptVersion "1.5.7"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2143,7 +2145,7 @@ proc best {unick host handle dest text} {
 			return 1
 		} elseif {$numEvents <= 0} {
 			send $unick $dest "Event $eventName not found"
-			return 1 
+			return 1
 		}
 		set evid [lindex $rows 0]
 	}
@@ -2153,9 +2155,9 @@ proc best {unick host handle dest text} {
 	}
 	set rows [db eval { SELECT nick, vote, pick_result, event_name FROM vw_picks \
 		WHERE pick_result IS NOT NULL AND event_id = :evid ORDER BY user_id}]
-	if {$rows<=0} { 
+	if {$rows<=0} {
 		send $unick $dest "Nobody have picked for this event, or the results havent been published yet"
-		return 1 
+		return 1
 	}
 	set pickList [list]
 	foreach {nick vote result event_name} $rows {
@@ -2193,7 +2195,7 @@ proc help {unick host handle dest text} {
 	variable adminFlag
 	variable scriptVersion
 
-	send $unick $dest "[b][u]FIGHT POLL $scriptVersion HELP[/u][/b]"
+	send $unick $dest "[b][u]FIGHT BOT $scriptVersion HELP[/u][/b]"
 
 	foreach {access line} [concat {
 		@ {.importfights ........................................... Import fights and betting lines from the web}
@@ -2256,6 +2258,6 @@ if {[catch {init} error]} {
 registerCleanup ${ns} ${ns}::db
 
 
-putlog "[b]Fight Poll TCL $scriptVersion by makk loaded![/b]"
+putlog "[b]Fight Bot TCL $scriptVersion by makk loaded![/b]"
 
 }
