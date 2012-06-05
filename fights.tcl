@@ -2182,29 +2182,38 @@ proc best {unick host handle dest text} {
 	set oldWins 0
 	set oldLosses 0
 	set oldRank 0
+	set userRank 0
+	set reachedLimit 0
 	foreach pick $pickList {
 		incr counter
 		set rank $counter
 		foreach {nick wins losses} $pick {
-			if {$wins==$oldWins && $losses==$oldLosses} {
+			if {$wins == $oldWins && $losses == $oldLosses} {
 				set rank $oldRank
 			} else {
 				set oldWins $wins
 				set oldLosses $losses
 				set oldRank $rank
 			}
+			if {$nick == $unick} { set userRank $rank }
 			if {$counter>$offset} {
 				send $unick $dest [format " %-4d: %-12s %-6d %-6d" $rank $nick $wins $losses]
 			}
 		}
 		if {$counter==[expr $limit + $offset]} {
-			set limit2 ""
-			if {$limit!=20} {
-				set limit2 ",$limit"
-			}
-			send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
-			break 
+			set reachedLimit 1
+			break
 		}
+	}
+	if {$userRank} {
+		send $unick $dest "You rank $userRank out of [llength $pickList]"
+	}
+	if {$reachedLimit} {
+		set limit2 ""
+		if {$limit!=20} {
+			set limit2 ",$limit"
+		}
+		send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
 	}
 }
 mbind {msgm pubm} - {"% .best*"} ${ns}::best
