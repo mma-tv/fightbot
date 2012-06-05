@@ -2200,9 +2200,9 @@ proc best {unick host handle dest text} {
 		if {$counter==[expr $limit + $offset]} {
 			set limit2 ""
 			if {$limit!=20} {
-				set limit2 "$limit"
+				set limit2 ",$limit"
 			}
-			send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit],$limit2 $expr[/b]"
+			send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
 			break 
 		}
 	}
