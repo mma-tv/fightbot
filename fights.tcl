@@ -2129,15 +2129,18 @@ proc parseSherdogFightFinder {tagtype state props body} {
 }
 
 proc best {unick host handle dest text} {
+	if {![onPollChan $unick]} { return 1 }
+	
+	getLimits $text trigger offset limit expr
 	set evid ""
-	if {$text==""} {
+	if {$expr==""} {
 		if {[getEvent $unick $host $dest event]} {
 			set evid $event(id)
 		} else {
 			set showUsage 1
 		}
 	} else {
-		set eventName [string trim $text {\ @}]
+		set eventName [string trim $expr {\ @}]
 		set rows [db eval {SELECT id, name FROM events WHERE name REGEXP :eventName}]
 		set numEvents [expr [llength $rows] / 2]
 		if {$numEvents >= 2} {
@@ -2153,14 +2156,14 @@ proc best {unick host handle dest text} {
 		send $unick $dest "Usage: .best <eventRE>"
 		return 1
 	}
-	set rows [db eval { SELECT nick, vote, pick_result, event_name FROM vw_picks \
-		WHERE pick_result IS NOT NULL AND event_id = :evid ORDER BY user_id}]
+	set rows [db eval { SELECT nick, pick_result, event_name FROM vw_picks \
+		WHERE pick_result IS NOT NULL AND event_id = :evid AND vote IS NOT 0 ORDER BY user_id}]
 	if {$rows<=0} {
 		send $unick $dest "Nobody have picked for this event, or the results havent been published yet"
 		return 1
 	}
 	set pickList [list]
-	foreach {nick vote result event_name} $rows {
+	foreach {nick result event_name} $rows {
 		set pick [list]
 		set nickIndex [lsearch -index 0 $pickList $nick]
 		if {$nickIndex < 0} {
@@ -2168,26 +2171,43 @@ proc best {unick host handle dest text} {
 			lappend pick $nick 0 0
 			lappend pickList $pick
 		}
-		if {$vote} {
-			set index [expr {$result == 1 ? 1 : 2}]
-			set value [lindex $pickList $nickIndex $index]
-			incr value
-			lset pickList $nickIndex $index $value
-		}
+		set index [expr {$result == 1 ? 1 : 2}]
+		set value [lindex $pickList $nickIndex $index]
+		incr value
+		lset pickList $nickIndex $index $value
 	}
 	set pickList [lsort -integer -index 1 -decreasing [lsort -integer -index 2 -decreasing $pickList]]
-	set counter 0
-	send $unick $dest "[b][u]TOP 20 PICKERS @ $event_name[/u][/b]"
-	send $unick $dest "[b]NICK        WINS  LOSSES[/b]"
+	send $unick $dest "[b][u]TOP PICKERS @ $event_name[/u][/b]"
+	send $unick $dest "[b]RANK   NICK        WINS  LOSSES[/b]"
+	set oldWins 0
+	set oldLosses 0
+	set oldRank 0
 	foreach pick $pickList {
 		incr counter
+		set rank $counter
 		foreach {nick wins losses} $pick {
-			send $unick $dest [format "%-12s %-6d %-6d" $nick $wins $losses]
+			if {$wins==$oldWins && $losses==$oldLosses} {
+				set rank $oldRank
+			} else {
+				set oldWins $wins
+				set oldLosses $losses
+				set oldRank $rank
+			}
+			if {$counter>$offset} {
+				send $unick $dest [format " %-4d: %-12s %-6d %-6d" $rank $nick $wins $losses]
+			}
 		}
-		if {$counter==20} { break }
+		if {$counter==[expr $limit + $offset]} {
+			set limit2 ""
+			if {$limit!=20} {
+				set limit2 "$limit"
+			}
+			send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit],$limit2 $expr[/b]"
+			break 
+		}
 	}
 }
-mbind {msg pub} - {.best} ${ns}::best
+mbind {msgm pubm} - {"% .best*"} ${ns}::best
 
 proc help {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 0 }
@@ -2236,7 +2256,7 @@ proc help {unick host handle dest text} {
 		- {.topstreaks ............................................. Show top 5 win streakers of all time}
 		- {.worststreaks ........................................... Show the 5 worst streakers of all time}
 		- {.sherdog [fighter|index[a|b]|!1|!2] ..................... Display Sherdog Fight Finder records}
-		- {.best [eventRE] ......................................... Show the 20 top pickers for matching/selected event}
+		- {.best[offset[,limit]] [eventRE] ......................... Show the 20 top pickers for matching/selected event}
 		- {.help ................................................... Display this help information}
 		- { }} [list\
 		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
