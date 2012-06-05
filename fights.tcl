@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.7"
+variable scriptVersion "1.5.8"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2130,7 +2130,7 @@ proc parseSherdogFightFinder {tagtype state props body} {
 
 proc best {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 1 }
-	
+
 	getLimits $text trigger offset limit expr
 	set evid ""
 	if {$expr==""} {
