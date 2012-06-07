@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jun  5, 2012
+#  Last Update: Jun  6, 2012
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.8"
+variable scriptVersion "1.5.9"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2141,16 +2141,17 @@ proc best {unick host handle dest text} {
 		}
 	} else {
 		set eventName [string trim $expr {\ @}]
-		set rows [db eval {SELECT id, name FROM events WHERE name REGEXP :eventName}]
+		set currentTime [now]
+		set rows [db eval {SELECT id, name FROM events \
+			WHERE name REGEXP :eventName AND start_date <= $currentTime ORDER BY start_date ASC}]
 		set numEvents [expr [llength $rows] / 2]
 		if {$numEvents >= 2} {
-			send $unick $dest "Multiple events found, refine your search"
-			return 1
+			send $unick $dest "Multiple events found, showing the results of the latest matching event"
 		} elseif {$numEvents <= 0} {
 			send $unick $dest "Event $eventName not found"
 			return 1
 		}
-		set evid [lindex $rows 0]
+		set evid [lindex $rows [expr [llength $rows] -2]]
 	}
 	if {[info exist showUsage]} {
 		send $unick $dest "Usage: .best <eventRE>"
@@ -2206,7 +2207,7 @@ proc best {unick host handle dest text} {
 		}
 	}
 	if {$userRank} {
-		send $unick $dest "You rank $userRank out of [llength $pickList]"
+		send $unick $dest "You are ranked $userRank out of [llength $pickList]"
 	}
 	if {$reachedLimit} {
 		set limit2 ""
