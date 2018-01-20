@@ -53,9 +53,12 @@ Configuration
 -------------
 
   * Give a channel the "fights" flag to let it listen for poll commands.
-    Example: `.chanset #mychan +fights`
+  
+    ``.chanset #mychan +fights``
+    
   * Give a **trusted** user the "P" flag to make that person a poll administrator.
-    Example: `.chattr trustydave P|fP #mychan`
+  
+    ``.chattr trustydave P|fP #mychan``
 
 
 Common Usage Examples
