@@ -1,4 +1,3 @@
-
 Fight Bot
 =========
 
@@ -14,8 +13,8 @@ Requirements
   - SQLite 3.6.19+
 
 
-Setup
------
+Installation
+------------
 
   1. Install [Eggdrop] 1.6.16+, [TCL] 8.5+, and [Tcllib].
      * Tcllib can usually be installed via most package managers, but if you need to install it manually for the local user, follow the miscellaneous [instructions below](#tcllib).
@@ -32,7 +31,6 @@ Setup
 
 Miscellaneous
 -------------
-<div id="tcllib"></div>
 
 ### Installing TCLLIB manually under a local user
 
@@ -49,6 +47,35 @@ Miscellaneous
   4. Set your TCLLIBPATH to ~/tcllib in your .bashrc or .bash_profile file.
      * Example: `export TCLLIBPATH=~/tcllib`
   5. Log out and log back in (or source your .bashrc file again)
+
+
+Configuration
+-------------
+
+  * Give a channel the "fights" flag to let it listen for poll commands.
+    Example: `.chanset #mychan +fights`
+  * Give a **trusted** user the "P" flag to make that person a poll administrator.
+    Example: `.chattr trustydave P|fp #mychan`
+
+
+Common Usage Examples
+---------------------
+
+  * To add and populate an event:
+  
+  ```
+  .addevent UFC 220: Miocic vs. Ngannou; 2018-01-20 10pm
+  .addfight Stipe Miocic vs. Francis Ngannou
+  .addfight Daniel Cormier vs. Volkan Oezdemir
+  ```
+  
+  * To list upcoming events: `.events`
+  * To select the first event in the list: `.event 1`
+  * To start polling the channel for picks on the 2nd fight: `.poll 2`
+  * To stop polling the channel and lock in the picks: `.stop`
+  * To announce that FighterB defeated FighterA: `.saywinner 2` or `.saywinner b`
+  
+  Message the bot with `.help` for a full list of commands.
 
 
 [eggdrop]:        http://www.eggheads.org/downloads/
