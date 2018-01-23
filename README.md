@@ -71,13 +71,13 @@ Common Usage Examples
   .addfight Stipe Miocic vs. Francis Ngannou
   .addfight Daniel Cormier vs. Volkan Oezdemir
   ```
-  
+
   * To list upcoming events: `.events`
   * To select the first event in the list: `.event 1`
   * To start polling the channel for picks on the 2nd fight: `.poll 2`
   * To stop polling the channel and lock in the picks: `.stop`
-  * To announce that FighterB defeated FighterA: `.saywinner 2` or `.saywinner b`
-  
+  * To announce that FighterB defeated FighterA: `.sayresult 2` or `.sayresult b`
+
   Message the bot with `.help` for a full list of commands.
 
 
