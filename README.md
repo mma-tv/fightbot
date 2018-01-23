@@ -58,7 +58,7 @@ Configuration
     
   * Give a **trusted** user the "P" flag to make that person a poll administrator.
   
-    ``.chattr trustydave P|fP #mychan``
+    ``.chattr trustydave fP|fP #mychan``
 
 
 Common Usage Examples
