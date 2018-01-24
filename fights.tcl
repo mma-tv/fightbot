@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jun  6, 2012
+#  Last Update: Jan 23, 2018
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.9"
+variable scriptVersion "1.5.10"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -291,7 +291,7 @@ proc importFights {unick host handle dest text} {
 	}
 
 	if {$dest != ""} {
-		listEvents $unick $host $handle $dest ".findevent"
+		listEvents $unick $host $handle $dest ""
 	}
 
 	array unset imports
@@ -492,7 +492,7 @@ proc event {unick host handle dest index} {
 	if {[selectEvent $unick $host "" $index]} {
 		listFights $unick $host $handle $dest
 	} else {
-		listEvents $unick $host $handle $dest ".findevent"
+		listEvents $unick $host $handle $dest ""
 		if {$index != ""} {
 			send $unick $dest " "
 			send $unick $dest "The upcoming events list was reloaded.\
