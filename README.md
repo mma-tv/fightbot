@@ -23,7 +23,7 @@ Installation
      * Extract and build the TCL sqlite module (typically in the "tea" directory)
         * Example: `tar -zxvf sqlite*.gz && cd sqlite*/tea && ./configure && make`
      * Create a symlink in the *eggdrop* directory to wherever you installed the .so shared object file from the previous step:
-        * Example:  `ln -s libsqlite3.7.11.so tclsqlite3.so`
+        * Example:  `ln -s ~/sqlite-autoconf-3220000/tea/libsqlite3.22.0.so tclsqlite3.so`
   3. Copy **fights.tcl** and **util.tcl** to the eggdrop *scripts* directory.
   4. Copy **fights.sql** to the *eggdrop* directory.
   5. Add this line to your eggdrop's config file:  `source scripts/fights.tcl`
