@@ -17,7 +17,7 @@ Installation
 ------------
 
   1. Install [Eggdrop] 1.6.16+, [TCL] 8.5+, and [Tcllib].
-     * Tcllib can usually be installed via most package managers, but if you need to install it manually for the local user, follow the miscellaneous [instructions below](#tcllib).
+     * Tcllib can usually be installed via most package managers, but if you need to install it manually for the local user, follow the miscellaneous [instructions below](#installing-tcllib-manually-under-a-local-user).
   2. Install [SQLite] with TCL bindings enabled.
      * Download the [SQLite tarball with TCL bindings][sqlite-tarball]
      * Extract and build the TCL sqlite module (typically in the "tea" directory)
