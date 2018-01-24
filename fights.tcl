@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jan 23, 2018
+#  Last Update: Jan 24, 2018
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.10"
+variable scriptVersion "1.5.11"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -291,7 +291,7 @@ proc importFights {unick host handle dest text} {
 	}
 
 	if {$dest != ""} {
-		listEvents $unick $host $handle $dest ""
+		listEvents $unick $host $handle $dest ".events"
 	}
 
 	array unset imports
@@ -484,7 +484,7 @@ proc listEvents {unick host handle dest text} {
 	}
 	return [logStackable $unick $host $handle $dest $text]
 }
-mbind {msgm pubm} - {"% .listevents*" "% .findevent*"} ${ns}::listEvents
+mbind {msgm pubm} - {"% .listevents*" "% .findevent*" "% .events*"} ${ns}::listEvents
 
 proc event {unick host handle dest index} {
 	if {![onPollChan $unick]} { return 0 }
@@ -492,16 +492,17 @@ proc event {unick host handle dest index} {
 	if {[selectEvent $unick $host "" $index]} {
 		listFights $unick $host $handle $dest
 	} else {
-		listEvents $unick $host $handle $dest ""
+		listEvents $unick $host $handle $dest ".events"
 		if {$index != ""} {
 			send $unick $dest " "
 			send $unick $dest "The upcoming events list was reloaded.\
 				Verify your selection above and try again."
 		}
+		return 0
 	}
 	return 1
 }
-mbind {msg pub} - {.event .events .selevent .selectevent .select} ${ns}::event
+mbind {msg pub} - .event ${ns}::event
 
 proc addEvent {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 0 }
