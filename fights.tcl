@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.11"
+variable scriptVersion "1.5.12"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -484,7 +484,7 @@ proc listEvents {unick host handle dest text} {
 	}
 	return [logStackable $unick $host $handle $dest $text]
 }
-mbind {msgm pubm} - {"% .listevents*" "% .findevent*" "% .events*"} ${ns}::listEvents
+mbind {msgm pubm} - {"% .events*" "% .findevent*" "% .listevents*"} ${ns}::listEvents
 
 proc event {unick host handle dest index} {
 	if {![onPollChan $unick]} { return 0 }
@@ -594,7 +594,7 @@ proc renameEvent {unick host handle dest text} {
 	}
 	return 1
 }
-mbind {msg pub} $adminFlag {.renameevent .renamevent .renevent} ${ns}::renameEvent
+mbind {msg pub} $adminFlag {.renameevent .renamevent} ${ns}::renameEvent
 
 proc mergeEvents {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 0 }
@@ -835,7 +835,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
 	}
 	return 1
 }
-mbind {msg pub} - {.fights .listfights .showfights} ${ns}::listFights
+mbind {msg pub} - {.fights .listfights} ${ns}::listFights
 
 proc addFight {unick host handle dest fight} {
 	if {![onPollChan $unick]} { return 0 }
@@ -931,7 +931,7 @@ proc renameFighter {unick host handle dest text} {
 	}
 	return 1
 }
-mbind {msg pub} $adminFlag {.renamefight .renfight .renamefighter .renfighter} ${ns}::renameFighter
+mbind {msg pub} $adminFlag {.renamefight .renamefighter} ${ns}::renameFighter
 
 proc lockFight {lockState unick host handle dest index} {
 	if {![onPollChan $unick]} { return 0 }
