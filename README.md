@@ -82,7 +82,7 @@ Common Usage Examples
 
 
 [eggdrop]:        http://www.eggheads.org/downloads/
-[tcl]:            http://www.tcl.tk/software/tcltk/download.html
-[tcllib]:         http://www.tcl.tk/software/tcllib/
-[sqlite]:         http://sqlite.org/download.html
-[sqlite-tarball]: http://sqlite.org/sqlite-autoconf-3071100.tar.gz
+[tcl]:            https://www.tcl.tk/software/tcltk/download.html
+[tcllib]:         https://www.tcl.tk/software/tcllib/
+[sqlite]:         https://sqlite.org/download.html
+[sqlite-tarball]: https://sqlite.org/2018/sqlite-autoconf-3220000.tar.gz
