@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jan 24, 2018
+#  Last Update: Jan 28, 2018
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -34,14 +34,14 @@ variable adminFlag       "P|P"         ;# user flag for allowing poll administra
 variable minPickDateDiff 2             ;# allow picks up to this many hours before event starts
 variable pollDuration    15            ;# max minutes before polling automatically ends
 variable pollInterval    120           ;# send reminders every this many seconds during polling
-variable maxResults      20            ;# max command results to show at one time
+variable maxResults      10            ;# max command results to show at one time
 variable backupTime      "02:22"       ;# military time of day to perform daily backup
 variable updateTime      "03:33"       ;# military time of day to update upcoming events from web
 variable putCommand      putnow        ;# send function: putnow, putquick, putserv, puthelp
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.12"
+variable scriptVersion "1.5.13"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2217,6 +2217,8 @@ proc best {unick host handle dest text} {
 		}
 		send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
 	}
+
+        return [logStackable $unick $host $handle $dest $text]
 }
 mbind {msgm pubm} - {"% .best*"} ${ns}::best
 
