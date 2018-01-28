@@ -2218,7 +2218,7 @@ proc best {unick host handle dest text} {
 		send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
 	}
 
-        return [logStackable $unick $host $handle $dest $text]
+	return [logStackable $unick $host $handle $dest $text]
 }
 mbind {msgm pubm} - {"% .best*"} ${ns}::best
 
