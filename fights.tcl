@@ -34,7 +34,7 @@ variable adminFlag       "P|P"         ;# user flag for allowing poll administra
 variable minPickDateDiff 2             ;# allow picks up to this many hours before event starts
 variable pollDuration    15            ;# max minutes before polling automatically ends
 variable pollInterval    120           ;# send reminders every this many seconds during polling
-variable maxResults      10            ;# max command results to show at one time
+variable maxResults      20            ;# max command results to show at one time
 variable backupTime      "02:22"       ;# military time of day to perform daily backup
 variable updateTime      "03:33"       ;# military time of day to update upcoming events from web
 variable putCommand      putnow        ;# send function: putnow, putquick, putserv, puthelp

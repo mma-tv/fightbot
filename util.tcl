@@ -24,6 +24,7 @@ namespace eval ::util:: {
 	variable ns [namespace current]
 	variable maxMessageLen 510
 	variable maxLineWrap   5  ;# max lines to wrap when text is too long
+	variable floodExempt   1  ;# set to 1 if the bot is exempt from flood limits
 	variable floodSupport  0
 	variable tz            ":America/New_York"  ;# "-0500"
 
@@ -275,17 +276,20 @@ proc ::util::put {text {queue putquick} {loglevel 0} {prefix ""} {suffix ""} {el
 
 proc ::util::putType {type unick dest text {queue putquick} {loglevel 0}} {
 	global botnick
+	variable floodExempt
 	variable floodSupport
 
-	if {$floodSupport} {
-		foreach chan [concat [list $dest] [channels]] {
-			if {[validchan $chan] && [isop $botnick $chan] && [onchan $unick $chan]} {
-				return [put $text $queue $loglevel "C$type $unick $chan :"]
+	if {![info exists floodExempt] || !$floodExempt} {
+		if {$floodSupport} {
+			foreach chan [concat [list $dest] [channels]] {
+				if {[validchan $chan] && [isop $botnick $chan] && [onchan $unick $chan]} {
+					return [put $text $queue $loglevel "C$type $unick $chan :"]
+				}
 			}
 		}
-	}
-	if {[string index $dest 0] != "#" && $queue == "putnow"} {
-		set queue putquick
+		if {[string index $dest 0] != "#" && $queue == "putnow"} {
+			set queue putquick
+		}
 	}
 	return [put $text $queue $loglevel "$type $unick :"]
 }
