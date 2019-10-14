@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jan 28, 2018
+#  Last Update: Oct 14, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -41,7 +41,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.13"
+variable scriptVersion "1.5.14"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -434,9 +434,15 @@ proc getLimits {text outTrigger outOffset outLimit outArgs} {
 proc listEvents {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 1 }
 
-	clearEvents $unick $host
-
 	getLimits $text trigger offset limit expr
+
+	# treat .events as .event if the search string is a valid event index
+	if {$trigger == ".events" && [selectEvent $unick $host "" $expr]} {
+		listFights $unick $host $handle $dest
+		return [logStackable $unick $host $handle $dest $text]
+	}
+
+	clearEvents $unick $host
 
 	set query {SELECT id, name, start_date FROM events}
 	if {$expr == ""} {
