@@ -1984,7 +1984,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 	array unset sherdog
 	return 1
 }
-mbind {msg pub} - {.sherdog .fightfinder} ${ns}::searchSherdogFightFinder
+mbind {msg pub} - {.sherdog .sh .fightfinder} ${ns}::searchSherdogFightFinder
 
 proc fetch {url} {
 	http::register https 443 tls::socket
