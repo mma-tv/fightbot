@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 14, 2019
+#  Last Update: Oct 15, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -20,6 +20,8 @@ source "[file dirname [info script]]/util.tcl"
 
 package require util
 package require http
+package require tdom
+package require tls
 
 namespace eval ::fights {
 
@@ -41,7 +43,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.14"
+variable scriptVersion "1.5.15"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1958,49 +1960,21 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight($fighter)
 		}
 	} else {
-		set url "http://www.google.com/search?"
-		append url [http::formatQuery num 1 as_qdr all as_sitesearch www.sherdog.com as_q "\"fight finder\" $query"]
 		send $unick $dest "Searching Sherdog Fight Finder for '$query'.  Please wait..."
+		
+		set searchBase "https://www.bing.com/search?"
+		set searchQuery [http::formatQuery q "site:sherdog.com/fighter/ $query"]
+		set searchUrl "$searchBase$searchQuery"
 
-		array unset sherdog
-		http::config -useragent "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0)"
-		if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseGoogleForSherdog}]} {
-			send $unick $dest "Connection to Google at '$url' failed. Please try again later."
-		} elseif {![info exists sherdog(url)]} {
-			send $unick $dest "Google failed to return a Sherdog Fight Finder URL.\
-				Try again later or change the query a bit."
+		set searchResults [fetch $searchUrl]
+		set links [parseLinks $searchResults]
+		set sherdogURL [getSherdogURL $links]
+		if {$sherdogURL == ""} {
+			send $unick $dest "No match for '$query' in the Sherdog Fight Finder."
 		} else {
-			if {[catch {parseHTML [http::data [geturlex $sherdog(url)]] ${ns}::parseSherdogFightFinder}]} {
-				send $unick $dest "Connection to Sherdog at '$sherdog(url)' failed.\
-					Please try again later."
-			} elseif {![info exists sherdog(headers)] && ![info exists sherdog(record)]} {
-				send $unick $dest "Failed to parse Sherdog content at $sherdog(url)"
-			} else {
-				set name $query
-				regsub -all {"\s+(.*?)\s+"} $sherdog(name) {"\1"} fighter
-				send $unick $dest "[b][u][string trim $fighter][/u][/b]"
-				foreach bio $sherdog(profile) {
-					regsub {^\s*(Birthday|Height|Weight|Association|Class|Wins|Losses|N/C):?} $bio "[b]\\1[/b]:" bio
-					send $unick $dest "  $bio"
-				}
-				foreach stat $sherdog(record) {
-					regsub -all {\(\s+(\S+)\s+\)} $stat {(\1)} stat
-					regsub {^(\S+)\s+(\d+)} $stat "[b]\\1[/b]: \\2" stat
-					regsub {^(\S+\s+\d+)\s+(.*)} $stat {\1 | \2} stat
-					send $unick $dest "  $stat"
-				}
-				if {[llength $sherdog(history)]} {
-					send $unick $dest " "
-					set i 0
-					foreach fight $sherdog(history) {
-						foreach {result opponent event method round time} $fight {
-							send $unick $dest [format "%3d. %-4s | [b]%s[/b] | %s | %s | Round %s | %s"\
-								[incr i] [string toupper $result 0 0] $opponent $event $method $round $time]
-						}
-					}
-				}
-				send $unick $dest " "
-				send $unick $dest "Sherdog Fight Finder page for $name: [b]$sherdog(url)[/b]"
+			set sherdogHTML [fetch $sherdogURL]
+			foreach line [parseSherdogHTML $sherdogHTML $query $sherdogURL] {
+				send $unick $dest $line
 			}
 		}
 	}
@@ -2012,127 +1986,121 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 }
 mbind {msg pub} - {.sherdog .fightfinder} ${ns}::searchSherdogFightFinder
 
-proc parseGoogleForSherdog {tagtype state props body} {
-	variable sherdog
-	set tag "$state$tagtype"
-	if {$tag == "a" && [regexp -nocase {href=\u0022?(http://www\.sherdog\.com/fighter/[^\u0022 ]+)} $props m url]} {
-		set sherdog(url) $url
-	}
+proc fetch {url} {
+	http::register https 443 tls::socket
+	set token [http::geturl $url -timeout 5000]
+	set status [http::status $token]
+	set answer [http::data $token]
+	http::cleanup $token
+	http::unregister https
+	return $answer
 }
 
-proc parseSherdogFightFinder {tagtype state props body} {
-	variable sherdog
-	set tag "$state$tagtype"
-
-	if {$tag == "h2" && $body == "Amateur Fights"} {
-		set sherdog(state) ""
-		set sherdog(done) 1
-		return
-	} elseif {[info exists sherdog(done)]} {
-		return
+proc parseLinks {html} {
+	set dom [dom parse -html $html]
+	set doc [$dom documentElement]
+	set links {}
+	foreach link [$doc selectNodes {//a}] {
+		lappend links [$link selectNodes {string(@href)}]
 	}
+	return $links
+}
 
-	if {$tag == "hmstart"} {
-		array unset sherdog "done"
-		set sherdog(state) ""
-		set sherdog(name) ""
-		set sherdog(profile) {}
-		set sherdog(record) {}
-		set sherdog(history) {}
-	} elseif {$props == {class="module bio_fighter"}} {
-		set sherdog(state) "findH1"
-	} elseif {[string match "class=\u0022item*" $props]} {
-		set sherdog(state) "profile"
-		if {[info exists sherdog(bio)]} {
-			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
-			array unset sherdog "bio"
-		}
-	} elseif {[string match "class=\u0022bio_graph*" $props]} {
-		set sherdog(state) "record"
-		if {[info exists sherdog(bio)]} {
-			lappend sherdog(profile) [string range $sherdog(bio) 1 end]
-			array unset sherdog "bio"
-		}
-		if {[info exists sherdog(stat)]} {
-			lappend sherdog(record) [string range $sherdog(stat) 1 end]
-			array unset sherdog "stat"
-		}
-	} elseif {$props == {class="module fight_history"}} {
-		set sherdog(state) "startHistory"
-		if {[info exists sherdog(stat)]} {
-			lappend sherdog(record) [string range $sherdog(stat) 1 end]
-			array unset sherdog "stat"
-		}
-	} elseif {$tag == "tr" && $props == {class="odd"} || $props == {class="even"}} {
-		if {$sherdog(state) == "startHistory"} {
-			set sherdog(state) "history"
-		}
-	} elseif {$tag == "/tr" && $sherdog(state) == "history"} {
-		if {[info exists sherdog(fight)]} {
-			if {[info exists sherdog(history)]} {
-				set sherdog(history) [linsert $sherdog(history) 0 $sherdog(fight)]
-			} else {
-				lappend sherdog(history) $sherdog(fight)
-			}
-			array unset sherdog "fight"
-			array unset sherdog "cell"
+proc getSherdogURL {links} {
+	foreach link $links {
+		if {[regexp {^https?://(?:[^.]+\.)?sherdog\.com/fighter/[^/]+$} $link]} {
+			return $link
 		}
 	}
+	return ""
+}
 
-	switch $sherdog(state) {
-		findH1 {
-			if {$tag == "h1"} {
-				set sherdog(state) "name"
-				set body [string trim [htmlDecode $body]]
-				if {$body != ""} {
-					append sherdog(name) " $body"
-				}
+proc parseSherdogHTML {html query url} {
+	set ret {}
+
+	set dom [dom parse -html $html]
+	set doc [$dom documentElement]
+	set fighter [$doc selectNodes {string(//h1//*[contains(@class, 'fn')])}]
+	set nickname [$doc selectNode {string(//h1//*[contains(@class, 'nickname')])}]
+	set birthDate [$doc selectNodes {string(//*[@itemprop='birthDate'])}]
+	set age [expr ([clock seconds] - [clock scan $birthDate]) / (60 * 60 * 24 * 365)]
+	set height [$doc selectNodes {string(//*[@itemprop='height'])}]
+	set weight [$doc selectNodes {string(//*[@itemprop='weight'])}]
+	set weightClass [$doc selectNodes {string(//*[contains(@class, 'wclass')]//a)}]
+	set nationality [$doc selectNodes {string(//*[@itemprop='nationality'])}]
+	set association [$doc selectNodes {string(//*[contains(@class, 'association')]//strong)}]
+
+	set wins 0
+	set losses 0
+	set other 0
+	set fights {}
+	set i 0
+	set rows [lreverse [lrange [$doc selectNodes {(//*[contains(@class, 'fight_history')])[1]//tr}] 1 end]]
+	set maxCountSpace [string length [llength $rows]]
+
+	foreach row $rows {
+		set count [incr i]
+		set result [$row selectNodes {string(td[1]/*)}]
+
+		switch [string tolower $result] {
+			win - w {
+				incr wins
+				set result "[c 3]Win[/c]"
+			}
+			loss - l {
+				incr losses
+				set result "[c 4]Loss[/c]"
+			}
+			draw - d - md {
+				incr other
+				set result "[c 5]Draw[/c]"
+			}
+			nc - nd - n {
+				incr other
+				set result "[c 14][string toupper $result][/c]"
 			}
 		}
-		name {
-			set body [string trim [htmlDecode $body]]
-			if {$body != ""} {
-				append sherdog(name) " $body"
-			}
-			if {$tag == "/h1"} {
-				set sherdog(state) ""
-			}
+
+		set opponent [$row selectNodes {string(td[2]/a)}]
+		set event [$row selectNodes {string(td[3]//a)}]
+		set date [$row selectNodes {string(td[3]//*[contains(@class, 'sub_line')])}]
+		set date [clock format [clock scan $date -format "%b / %d / %Y"] -format "%Y-%m-%d"]
+		set method [$row selectNodes {string(td[4])}]
+		set ref [$row selectNodes {string(td[4]//*[contains(@class, 'sub_line')])}]
+		if {$ref == [string range $method [expr [string length $method] - [string length $ref]] end]} {
+			set method [string range $method 0 [expr [string length $method] - [string length $ref] - 1]]
 		}
-		profile {
-			set body [string trim [htmlDecode $body]]
-			if {$body != ""} {
-				append sherdog(bio) " $body"
-			}
-		}
-		record {
-			set body [string trim [htmlDecode $body]]
-			if {$body != ""} {
-				append sherdog(stat) " $body"
-			}
-			if {$tag == "/div"} {
-				set sherdog(state) ""
-			}
-		}
-		history {
-			if {$tag == "/table"} {
-				set sherdog(state) ""
-				set sherdog(done) 1
-			} else {
-				set body [string trim [htmlDecode $body]]
-				if {$body != ""} {
-					if {$props == {class="sub_line"}} {
-						append sherdog(cell) " ::"
-						regsub -all {\s+/\s+} $body {/} body
-					}
-					append sherdog(cell) " $body"
-				}
-				if {$tag == "/td" && [info exists sherdog(cell)]} {
-					lappend sherdog(fight) [string range $sherdog(cell) 1 end]
-					array unset sherdog "cell"
-				}
-			}
-		}
+		set round [$row selectNodes {string(td[5])}]
+		set time [$row selectNodes {string(td[6])}]
+		lappend fights [format "%${maxCountSpace}d. [b]%-7s[/b] | [b]%s[/b] | %s | %s | %s | R%s | %s" $count $result $opponent $event $date $method $round $time]
 	}
+
+	set totalFights [expr $wins + $losses + $other]
+	set winPct [expr round(($wins / double($totalFights)) * 100)]
+	set lossPct [expr round(($losses / double($totalFights)) * 100)]
+	set otherPct [expr 100 - ($winPct + $lossPct)]
+
+	lappend ret [format "[b][u]%s[/u][/b]" [string trim "$fighter $nickname"]]
+	lappend ret [format "  [b]AGE[/b]: %s (%s)" $age $birthDate]
+	lappend ret [format "  [b]HEIGHT[/b]: %s" $height]
+	lappend ret [format "  [b]WEIGHT[/b]: %s (%s)" $weight $weightClass]
+	lappend ret [format "  [b]NATIONALITY[/b]: %s" $nationality]
+	lappend ret [format "  [b]ASSOCIATION[/b]: %s" $association]
+	set record [format "  [b]WINS[/b]: [c 3][b]%d[/b][/c] (%d%%) [b]LOSSES[/b]: [c 4][b]%d[/b][/c] (%d%%)" $wins $winPct $losses $lossPct]
+	if {$otherPct > 0} {
+		append record [format " [b]OTHER[/b]: [c 14][b]%d[/b][/c] (%d%%)" $other $otherPct]
+	}
+	lappend ret $record
+	lappend ret " "
+
+	foreach fight $fights {
+		lappend ret $fight
+	}
+
+	lappend ret " "
+	lappend ret "Sherdog Fight Finder page for '$query': [b][regsub {#.*$} $url {}][/b]"
+	
+	return $ret
 }
 
 proc best {unick host handle dest text} {
