@@ -254,7 +254,7 @@ proc importFights {unick host handle dest text} {
 	variable imports
 
 	set url "http://www.bestfightodds.com/"
-	send $unick $dest "Importing fights from $url.  Please wait..."
+	send $unick $dest "Importing fights from $url. Please wait..."
 
 	array unset imports
 	if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseBestFightOdds}]} {
@@ -546,7 +546,7 @@ proc addEvent {unick host handle dest text} {
 
 			if {$defaultDate} {
 				send $unick $dest "Since you did not specify a valid event date, the event has been\
-					scheduled for today by default.  This means users are not allowed to [b].pick[/b]\
+					scheduled for today by default. This means users are not allowed to [b].pick[/b]\
 					for this event and can only vote during the live fight announcements."
 				send $unick $dest "You can change the date at any time by typing:\
 					[b].addevent $eventName; yyyy-MM-dd HH:mm Z[/b]"
@@ -826,7 +826,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
 				send $unick $dest $line
 			}
 			if {($totalPicks == 0 && $you) || $showUsage} {
-				send $unick $dest "Type [b].pick <index><a|b>\[~\][/b] to make your picks.  Multi-pick example: .pick 1b 2a~ 4b"
+				send $unick $dest "Type [b].pick <index><a|b>\[~\][/b] to make your picks. Multi-pick example: .pick 1b 2a~ 4b"
 				send $unick $dest "Picks with a tilde '~' after them will not affect your stats."
 			}
 		} else {
@@ -1117,7 +1117,7 @@ proc endPoll {} {
 						mmsg [list\
 							"[b]$fighter1[/b] ($fighter1Votes/$fighter1Percentage) vs.\
 							[b]$fighter2[/b] ($fighter2Votes/$fighter2Percentage)"\
-							"$totalVotes vote[s $totalVotes] locked in.  Results after fight is over."] $eventName
+							"$totalVotes vote[s $totalVotes] locked in. Results after fight is over."] $eventName
 					} else {
 						mmsg [list "Time's up!  No one voted on [b]$fighter1[/b] vs. [b]$fighter2[/b]."] $eventName
 					}
@@ -1474,7 +1474,7 @@ proc delPick {unick host handle dest arg} {
 				listFights $unick $host $handle $dest
 			} else {
 				send $unick $dest "Your pick for [b]$fight(fighter1) vs. $fight(fighter2)[/b]\
-					cannot be removed.  Either you had no pick for this fight or the fight already started."
+					cannot be removed. Either you had no pick for this fight or the fight already started."
 			}
 		}
 	}
@@ -1931,7 +1931,6 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 	if {![onPollChan $unick]} { return 0 }
 
 	variable ns
-	variable sherdog
 	variable poll
 	set showUsage 0
 	set query [string trim $text]
@@ -1960,7 +1959,7 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 			searchSherdogFightFinder $unick $host $handle $dest $fight($fighter)
 		}
 	} else {
-		send $unick $dest "Searching Sherdog Fight Finder for '$query'.  Please wait..."
+		send $unick $dest "Searching Sherdog Fight Finder for '$query'. Please wait..."
 		
 		set searchBase "https://www.bing.com/search?"
 		set searchQuery [http::formatQuery q "site:sherdog.com/fighter/ $query"]
@@ -1981,7 +1980,6 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 	if {$showUsage} {
 		send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
 	}
-	array unset sherdog
 	return 1
 }
 mbind {msg pub} - {.sherdog .sh .fightfinder} ${ns}::searchSherdogFightFinder
@@ -2246,7 +2244,7 @@ proc help {unick host handle dest text} {
 		- {.best[offset[,limit]] [eventRE] ......................... Show the 20 top pickers for matching/selected event}
 		- {.help ................................................... Display this help information}
 		- { }} [list\
-		- "NOTES: \"RE\" suffix indicates a regular expression.  All times are [timezone]."] {
+		- "NOTES: \"RE\" suffix indicates a regular expression. All times are [timezone]."] {
 		- { }
 	}] {
 		if {$access == "-" || [matchchanattr $handle $adminFlag $dest]} {
