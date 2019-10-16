@@ -43,7 +43,7 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 
 
-variable scriptVersion "1.5.15"
+variable scriptVersion "1.5.16"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1965,15 +1965,26 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 		set searchQuery [http::formatQuery q "site:sherdog.com/fighter/ $query"]
 		set searchUrl "$searchBase$searchQuery"
 
-		set searchResults [fetch $searchUrl]
-		set links [parseLinks $searchResults]
+		if {[catch {set searchResults [fetch $searchUrl]} err]} {
+			send $unick $dest "Failed to get a Sherdog URL"
+			putlog "ERROR: $err"
+		}
+		if {[catch {set links [parseLinks $searchResults]} err]} {
+			send $unick $dest "Failed to parse links in search results"
+			putlog "ERROR: $err"
+		}
 		set sherdogURL [getSherdogURL $links]
 		if {$sherdogURL == ""} {
 			send $unick $dest "No match for '$query' in the Sherdog Fight Finder."
 		} else {
 			set sherdogHTML [fetch $sherdogURL]
-			foreach line [parseSherdogHTML $sherdogHTML $query $sherdogURL] {
-				send $unick $dest $line
+			if {[catch {set results [parseSherdogHTML $sherdogHTML $query $sherdogURL]} err]} {
+				send $unick $dest "Failed to parse Sherdog Fight Finder content at $sherdogURL"
+				putlog "ERROR: $err"
+			} else {
+				foreach line $results {
+					send $unick $dest $line
+				}
 			}
 		}
 	}
@@ -1988,10 +1999,10 @@ proc fetch {url} {
 	http::register https 443 tls::socket
 	set token [http::geturl $url -timeout 5000]
 	set status [http::status $token]
-	set answer [http::data $token]
+	set data [http::data $token]
 	http::cleanup $token
 	http::unregister https
-	return $answer
+	return $data
 }
 
 proc parseLinks {html} {
@@ -2016,12 +2027,19 @@ proc getSherdogURL {links} {
 proc parseSherdogHTML {html query url} {
 	set ret {}
 
+	# hack to clean up malformed html that breaks the parser
+	regsub -all {(?:/\s*)+(?=/\s*>)} $html "" html
+
 	set dom [dom parse -html $html]
 	set doc [$dom documentElement]
 	set fighter [$doc selectNodes {string(//h1//*[contains(@class, 'fn')])}]
+	regsub -all { {2,}} [string trim $fighter] " " fighter
 	set nickname [$doc selectNode {string(//h1//*[contains(@class, 'nickname')])}]
 	set birthDate [$doc selectNodes {string(//*[@itemprop='birthDate'])}]
-	set age [expr ([clock seconds] - [clock scan $birthDate]) / (60 * 60 * 24 * 365)]
+	set age 0
+	if {$birthDate != "" && ![catch {clock scan $birthDate}]} {
+		set age [expr ([clock seconds] - [clock scan $birthDate]) / (60 * 60 * 24 * 365)]
+	}
 	set height [$doc selectNodes {string(//*[@itemprop='height'])}]
 	set weight [$doc selectNodes {string(//*[@itemprop='weight'])}]
 	set weightClass [$doc selectNodes {string(//*[contains(@class, 'wclass')]//a)}]
@@ -2031,14 +2049,17 @@ proc parseSherdogHTML {html query url} {
 	set wins 0
 	set losses 0
 	set other 0
+	set winPct 0
+	set lossPct 0
+	set otherPct 0
 	set fights {}
 	set i 0
-	set rows [lreverse [lrange [$doc selectNodes {(//*[contains(@class, 'fight_history')])[1]//tr}] 1 end]]
+	set rows [lreverse [lrange [$doc selectNodes {//*[contains(@class, 'fight_history')][.//h2[text() = 'Fight History - Pro']]//tr}] 1 end]]
 	set maxCountSpace [string length [llength $rows]]
 
 	foreach row $rows {
 		set count [incr i]
-		set result [$row selectNodes {string(td[1]/*)}]
+		set result [$row selectNodes {string(td[1])}]
 
 		switch [string tolower $result] {
 			win - w {
@@ -2059,7 +2080,7 @@ proc parseSherdogHTML {html query url} {
 			}
 		}
 
-		set opponent [$row selectNodes {string(td[2]/a)}]
+		set opponent [$row selectNodes {string(td[2])}]
 		set event [$row selectNodes {string(td[3]//a)}]
 		set date [$row selectNodes {string(td[3]//*[contains(@class, 'sub_line')])}]
 		set date [clock format [clock scan $date -format "%b / %d / %Y"] -format "%Y-%m-%d"]
@@ -2073,17 +2094,31 @@ proc parseSherdogHTML {html query url} {
 		lappend fights [format "%${maxCountSpace}d. [b]%-7s[/b] | [b]%s[/b] | %s | %s | %s | R%s | %s" $count $result $opponent $event $date $method $round $time]
 	}
 
-	set totalFights [expr $wins + $losses + $other]
-	set winPct [expr round(($wins / double($totalFights)) * 100)]
-	set lossPct [expr round(($losses / double($totalFights)) * 100)]
-	set otherPct [expr 100 - ($winPct + $lossPct)]
-
 	lappend ret [format "[b][u]%s[/u][/b]" [string trim "$fighter $nickname"]]
-	lappend ret [format "  [b]AGE[/b]: %s (%s)" $age $birthDate]
-	lappend ret [format "  [b]HEIGHT[/b]: %s" $height]
-	lappend ret [format "  [b]WEIGHT[/b]: %s (%s)" $weight $weightClass]
-	lappend ret [format "  [b]NATIONALITY[/b]: %s" $nationality]
-	lappend ret [format "  [b]ASSOCIATION[/b]: %s" $association]
+
+	if {$age > 0} {
+		lappend ret [format "  [b]AGE[/b]: %s (%s)" $age $birthDate]
+	}
+	if {[string length $height]} {
+		lappend ret [format "  [b]HEIGHT[/b]: %s" $height]
+	}
+	if {[string length $weight]} {
+		lappend ret [format "  [b]WEIGHT[/b]: %s (%s)" $weight $weightClass]
+	}
+	if {[string length $nationality]} {
+		lappend ret [format "  [b]NATIONALITY[/b]: %s" $nationality]
+	}
+	if {[string length $association]} {
+		lappend ret [format "  [b]ASSOCIATION[/b]: %s" $association]
+	}
+
+	set totalFights [expr $wins + $losses + $other]
+	if {$totalFights > 0} {
+		set winPct [expr round(($wins / double($totalFights)) * 100)]
+		set lossPct [expr round(($losses / double($totalFights)) * 100)]
+		set otherPct [expr 100 - ($winPct + $lossPct)]
+	}
+
 	set record [format "  [b]WINS[/b]: [c 3][b]%d[/b][/c] (%d%%) [b]LOSSES[/b]: [c 4][b]%d[/b][/c] (%d%%)" $wins $winPct $losses $lossPct]
 	if {$otherPct > 0} {
 		append record [format " [b]OTHER[/b]: [c 14][b]%d[/b][/c] (%d%%)" $other $otherPct]
@@ -2091,11 +2126,13 @@ proc parseSherdogHTML {html query url} {
 	lappend ret $record
 	lappend ret " "
 
-	foreach fight $fights {
-		lappend ret $fight
+	if {[llength $fights]} {
+		foreach fight $fights {
+			lappend ret $fight
+		}
+		lappend ret " "
 	}
 
-	lappend ret " "
 	lappend ret "Sherdog Fight Finder page for '$query': [b][regsub {#.*$} $url {}][/b]"
 	
 	return $ret
