@@ -101,14 +101,7 @@ proc ::sherdog::parse {html {url ""}} {
             }
         }
 
-        set winPct [expr round(($wins / double($totalFights)) * 100)]
-        set lossPct [expr round(($losses / double($totalFights)) * 100)]
-        set drawPct [expr round(($draws / double($totalFights)) * 100)]
-        set otherPct [expr 100 - ($winPct + $lossPct + $drawPct)]
-        set record [list\
-            wins $wins losses $losses draws $draws other $other\
-            winPct $winPct lossPct $lossPct drawPct $drawPct otherPct $otherPct\
-        ]
+        set record [list wins $wins losses $losses draws $draws other $other]
 
         dict set fighter fights $id record $record
         dict set fighter fights $id history [lreverse $history]
@@ -144,6 +137,29 @@ proc ::sherdog::query {query {output -v} args} {
     return $data
 }
 
+proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
+    set record [list $wins $losses $draws]
+    if {$other} {
+        lappend record $other
+    }
+
+    if {$showPct} {
+        set total 0
+        foreach val $record {
+            incr total $val
+        }
+
+        set recordPct {}
+        foreach val $record {
+            lappend recordPct [expr round(($val / double($total)) * 100)]
+        }
+
+        return [format "%s (%s%%)" [join $record "-"] [join $recordPct "%-"]]
+    }
+
+    return [join $record "-"]
+}
+
 proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
     set output {}
 
@@ -159,8 +175,7 @@ proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
     foreach {id title} {amateur "AMATEUR" proEx "PRO EXHIBITION" pro "PRO"} {
         if {[dict exists $fighter fights $id history]} {
             dict with fighter fights $id record {
-                addn output "[b]%s FIGHTS[/b]: %d-%d-%d-%d (%d%%-%d%%-%d%%-%d%%)"\
-                    $title $wins $losses $draws $other $winPct $lossPct $drawPct $otherPct
+                addn output "[b]%s FIGHTS[/b]: %s" $title [formatRecord $wins $losses $draws $other true]
             }
 
             set i 0
@@ -204,17 +219,12 @@ proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {* * * 19 3 * 0}}} 
 
     if {[dict exists $fighter fights pro]} {
         dict with fighter fights pro record {
-            set record [format "%s-%s-%s-%s" $wins $losses $draws $other]
+            set record [formatRecord $wins $losses $draws $other]
         }
 
         foreach fight [lrange [dict get $fighter fights pro history] end-19 end] {
             dict with fight {
-                switch -- $result {
-                    win - w   {append chart W}
-                    loss - l  {append chart L}
-                    draw - md {append chart D}
-                    nc - nd   {append chart N}
-                }
+                append chart [formatResult $result]
             }
         }
     }
@@ -252,11 +262,11 @@ proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {* * * 19 3 * 0}}} 
 proc ::sherdog::formatResult {result} {
     set ret $result
 
-    switch -- $result {
-        win - w       {set ret "[b][c 1 03]W[/c][/b]"}
-        loss - l      {set ret "[b][c 1 04]L[/c][/b]"}
-        draw - d - md {set ret "[b][c 1 05]D[/c][/b]"}
-        nc - nd - n   {set ret "[b][c 1 14]N[/c][/b]"}
+    switch -- [string tolower $result] {
+        win  - w      {set ret "[c 9 03]W[/c]"}
+        loss - l      {set ret "[c 4 05]L[/c]"}
+        draw - d - md {set ret "[c 5 07]D[/c]"}
+        nc   - n - nd {set ret "[c 1 14]N[/c]"}
     }
 
     return $ret
@@ -313,7 +323,7 @@ proc ::sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     foreach size $sizes {
         set max [lindex $maxColSizes $i]
         if {[string is digit -strict $max]} {
-            lappend columnFormats "%-[expr {min($size, $max)}].${max}s"
+            lappend columnFormats "%-[expr min($size, $max)].${max}s"
         } else {
             lappend columnFormats "%-${size}s"
         }
