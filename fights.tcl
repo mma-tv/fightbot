@@ -1964,6 +1964,9 @@ proc searchSherdogFightFinder {unick host handle dest text} {
 		set ret [regexp -all -inline -- {^\s*(.+?)\s*(?:\s+-f(?:ormat)?\s+((?:(?:\d+|\*+)\s*)+))?$} $query]
 		set q [lindex $ret 1]
 		set options [list {*}[string trim [lindex $ret 2]]]
+		if {[llength $options] == 0} {
+			set options {* * * 19 3 * 0}
+		}
 
 		send $unick $dest "Searching Sherdog Fight Finder for '$q'. Please wait..."
 		foreach line [sherdog::query $q -v $options] {

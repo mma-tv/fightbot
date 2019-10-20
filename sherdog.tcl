@@ -144,7 +144,7 @@ proc ::sherdog::query {query {output -v} args} {
 	return $data
 }
 
-proc ::sherdog::print {fighter {maxColSizes {}}} {
+proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
 	set output {}
 
 	dict with fighter {
@@ -170,8 +170,8 @@ proc ::sherdog::print {fighter {maxColSizes {}}} {
 
 			foreach fight $history {
 				dict with fight {
-					add data "%${maxCountSpace}d. %s | [b]%s[/b] | %s | %s | %s | %s | R%s | %s"\
-						[incr i] [formatResult $result] $opponent $event $date $method $ref $round $time
+					add data "%${maxCountSpace}d. %s | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
+						[incr i] [formatResult $result] $opponent $date $event $method $round $time $ref
 				}
 			}
 
@@ -197,7 +197,7 @@ proc ::sherdog::print {fighter {maxColSizes {}}} {
 	return $output
 }
 
-proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {}}} {
+proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {* * * 19 3 * 0}}} {
 	set output {}
 	set chart ""
 	set record ""
@@ -231,8 +231,8 @@ proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {}}} {
 
 		foreach fight $list {
 			dict with fight {
-				add results "%s [b]%s[/b] | %s | %s | R%s/%s | %s"\
-					[formatResult $result] $opponent $event $date $round $time $method
+				add results "%s | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
+					[formatResult $result] $opponent $date $event $method $round $time $ref
 			}
 		}
 
@@ -366,8 +366,13 @@ proc ::sherdog::findLink {html {substr "http"}} {
 
 proc ::sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
 	set ret [string trim [$doc selectNodes "string($selector)"]]
-	if {$format == "date"} {
-		catch {set ret [clock format [clock scan [string trim $ret /] -format $dateFormatIn] -format $dateFormatOut]}
+	switch -- $format {
+		string {
+			regsub -all {\s{2,}} $ret " " ret
+		}
+		date {
+			catch {set ret [clock format [clock scan [string trim $ret /] -format $dateFormatIn] -format $dateFormatOut]}
+		}
 	}
 	return $ret
 }
