@@ -110,7 +110,7 @@ proc ::sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc ::sherdog::query {query {output -v} args} {
+proc ::sherdog::query {query {mode -verbose} args} {
     variable SEARCH_BASE
     variable SEARCH_QUERY
     variable SEARCH_LINK
@@ -125,7 +125,7 @@ proc ::sherdog::query {query {output -v} args} {
     set html [fetch $url]
     set data [parse $html $url]
 
-    switch -- $output {
+    switch -- $mode {
         -v - -verbose - -f - -full - -l - -long {
             set data [print $data {*}$args]
         }
@@ -135,29 +135,6 @@ proc ::sherdog::query {query {output -v} args} {
     }
 
     return $data
-}
-
-proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
-    set record [list $wins $losses $draws]
-    if {$other} {
-        lappend record $other
-    }
-
-    if {$showPct} {
-        set total 0
-        foreach val $record {
-            incr total $val
-        }
-
-        set recordPct {}
-        foreach val $record {
-            lappend recordPct [expr round(($val / double($total)) * 100)]
-        }
-
-        return [format "%s (%s%%)" [join $record "-"] [join $recordPct "%-"]]
-    }
-
-    return [join $record "-"]
 }
 
 proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
@@ -270,6 +247,29 @@ proc ::sherdog::formatResult {result} {
     }
 
     return $ret
+}
+
+proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
+    set record [list $wins $losses $draws]
+    if {$other} {
+        lappend record $other
+    }
+
+    if {$showPct} {
+        set total 0
+        foreach val $record {
+            incr total $val
+        }
+
+        set recordPct {}
+        foreach val $record {
+            lappend recordPct [expr round(($val / double($total)) * 100)]
+        }
+
+        return [format "%s (%s%%)" [join $record "-"] [join $recordPct "%-"]]
+    }
+
+    return [join $record "-"]
 }
 
 proc ::sherdog::add {listVar format args} {
