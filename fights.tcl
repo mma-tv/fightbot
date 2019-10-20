@@ -1981,16 +1981,16 @@ proc searchSherdog {unick host handle dest text} {
             set target $dest
         }
 
-		if {[catch {set results [sherdog::query $query {*}$queryOptions]} err]} {
-			send $unick $dest $err
-		} else {
-			if {[llength $results] > $maxPublicLines} {
-				set target $unick
-			}
-			foreach line $results {
-				send $target $dest $line
-			}
-		}
+        if {[catch {set results [sherdog::query $query {*}$queryOptions]} err]} {
+            send $unick $dest $err
+        } else {
+            if {[llength $results] > $maxPublicLines} {
+                set target $unick
+            }
+            foreach line $results {
+                send $target $dest $line
+            }
+        }
     }
 
     if {$showUsage} {
