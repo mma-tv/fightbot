@@ -1933,9 +1933,9 @@ mbind {msg pub} - {
 proc searchSherdog {unick host handle dest text} {
     if {![onPollChan $unick]} { return 1 }
 
-    set trigger [lindex [split $text] 0]
+    set cmd [lindex [split $text] 0]
     set query [string trim [join [lrange [split $text] 1 end]]]
-    regexp {^(\S+?)(\d*|\*)(?:,((?:(?:\d+|\*),*)+))?$} $trigger m trigger limit columns
+    regexp {^\S+?(\d*|\*),?([*\d,]+)?$} $cmd m limit columns
 
     variable ns
     variable poll
@@ -1968,7 +1968,7 @@ proc searchSherdog {unick host handle dest text} {
         }
     } else {
         set columns [split $columns ,]
-        if {[llength $columns] == 0} {
+        if {[llength $columns] == 0 && [string index $cmd end] != ","} {
             set columns $defaultColSizes
         }
 

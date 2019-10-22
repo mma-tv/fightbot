@@ -5,7 +5,7 @@
 # Module: sherdog.tcl
 # Author: makk@EFnet
 # Description: Sherdog Fight Finder parser
-# Release Date: October 20, 2019
+# Release Date: October 22, 2019
 #
 ####################################################################
 
@@ -15,7 +15,7 @@ package require tdom
 
 package provide sherdog 1.0
 
-namespace eval ::sherdog:: {
+namespace eval sherdog {
     namespace export -clear query parse print printSummary
 
     variable SEARCH_BASE  "https://www.bing.com/search"
@@ -24,7 +24,7 @@ namespace eval ::sherdog:: {
     variable HTTP_TIMEOUT 5000
 }
 
-proc ::sherdog::parse {html {url ""}} {
+proc sherdog::parse {html {url ""}} {
     # hack to clean up malformed html that breaks the parser
     regsub -all {(?:/\s*)+(?=/\s*>)} $html "" html
     set dom [dom parse -html $html]
@@ -110,12 +110,11 @@ proc ::sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc ::sherdog::query {query {mode -verbose} args} {
+proc sherdog::query {query {mode -verbose} args} {
     variable SEARCH_BASE
     variable SEARCH_QUERY
     variable SEARCH_LINK
 
-    set data {}
     set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
     set url [findLink $searchResults $SEARCH_LINK]
     if {$url == ""} {
@@ -137,7 +136,7 @@ proc ::sherdog::query {query {mode -verbose} args} {
     return $data
 }
 
-proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
+proc sherdog::print {fighter {maxColSizes {*}}} {
     set output {}
 
     dict with fighter {
@@ -152,33 +151,33 @@ proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
     foreach {id title} {amateur "AMATEUR" proEx "PRO EXHIBITION" pro "PRO"} {
         if {[dict exists $fighter fights $id history]} {
             dict with fighter fights $id record {
-                addn output "[b]%s FIGHTS[/b]: %s" $title [formatRecord $wins $losses $draws $other true]
+                addn output "[b]%s FIGHTS[/b]: %s" $title\
+                    [formatRecord $wins $losses $draws $other true]
             }
 
             set i 0
             set history [dict get $fighter fights $id history]
             set maxCountSpace [string length [llength $history]]
-            set data {}
+            set results {}
 
             foreach fight $history {
                 dict with fight {
-                    add data "%${maxCountSpace}d. %s | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
-                        [incr i] [formatResult $result] $opponent $date $event $method $round $time $ref
+                    add results "%${maxCountSpace}d. %s" [incr i] [fightInfo $fight]
                 }
             }
 
             if {[llength $maxColSizes]} {
-                lappend output {*}[tabulate $data $maxColSizes]
+                lappend output {*}[tabulate $results $maxColSizes]
             } else {
-                lappend output {*}$data
+                lappend output {*}$results
             }
         }
     }
 
     if {[dict exists $fighter fights upcoming]} {
         dict with fighter fights upcoming {
-            addn output "[b]NEXT OPPONENT[/b]: [b]%s[/b] (%s) | %s | %s | %s"\
-                $opponent $opponentRecord $event $date $location
+            addn output "[b]NEXT OPPONENT[/b] (%s away): [b]%s[/b] (%s) | %s | %s | %s"\
+                [relativeTime $date {-s}] $opponent $opponentRecord $date $event $location
         }
     }
 
@@ -189,67 +188,109 @@ proc ::sherdog::print {fighter {maxColSizes {* * * 19 3 * 0}}} {
     return $output
 }
 
-proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {* * * 19 3 * 0}}} {
+proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}}} {
     set output {}
-    set chart ""
-    set record ""
+    set record "AMATEUR"
+    set hasProFights [dict exists $fighter fights pro]
 
-    if {[dict exists $fighter fights pro]} {
+    if {$hasProFights} {
         dict with fighter fights pro record {
             set record [formatRecord $wins $losses $draws $other]
         }
 
+        set widget ""
+
         foreach fight [lrange [dict get $fighter fights pro history] end-19 end] {
             dict with fight {
-                append chart [formatResult $result]
+                append widget [formatResult $result]
             }
         }
+
+        append record " $widget"
     }
 
     dict with fighter {
-        add output "[b]%s[/b]%s %s %s %s %s"\
-            $name [expr {$nickname == "" ? "" : " \"$nickname\""}]\
-            $record $chart [expr {$age == "" ? "" : "${age}yo"}] $url
+        add output "[b]%s[/b]%s%s %s%s %s" $name\
+            [expr {$nickname == "" ? "" : " \"$nickname\""}]\
+            [countryCode $nationality { [%s]}] $record\
+            [expr {$age == "" ? "" : " ${age}yo"}] $url
     }
 
-    if {$limit > 0} {
+    if {$hasProFights && $limit > 0} {
         set results {}
         set list [lrange [lreverse [dict get $fighter fights pro history]] 0 $limit-1]
 
         foreach fight $list {
             dict with fight {
-                add results "%s | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
-                    [formatResult $result] $opponent $date $event $method $round $time $ref
+                add results [fightInfo $fight]
             }
         }
 
-        lappend output {*}[tabulate $results $maxColSizes]
+        if {[llength $maxColSizes]} {
+            lappend output {*}[tabulate $results $maxColSizes]
+        } else {
+            lappend output {*}$results
+        }
     }
 
     if {[dict exists $fighter fights upcoming]} {
         dict with fighter fights upcoming {
-            add output "Next opponent: [b]%s[/b] (%s) on %s at %s"  $opponent $opponentRecord\
-                [clock format [clock scan $date] -format "%b%e"] $event
+            add output "Next opponent in %s: [b]%s[/b] (%s) on %s at %s"\
+                [relativeTime $date] $opponent $opponentRecord\
+                [collapse [clock format [clock scan $date] -format "%b %e"]] $event
         }
     }
 
     return $output
 }
 
-proc ::sherdog::formatResult {result} {
+proc sherdog::fightInfo {fight} {
+    dict with fight {
+        return [format "%s[b]%s[/b] | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
+            [formatResult $result "\u258c"] [string toupper [string index $result 0]]\
+            $opponent $date $event $method $round $time $ref]
+    }
+}
+
+proc sherdog::countryCode {nationality {fmt "%s"}} {
+    variable countries
+    set c [string tolower [string trim $nationality]]
+    foreach expr [list $c "${c}*" "*${c}*"] {
+        set code [lindex [array get countries $expr] 1]
+        if {$code != ""} {
+            return [format $fmt $code]
+        }
+    }
+    putlog "sherdog::countryCode() NO MATCH FOR $nationality"
+    return ""
+}
+
+proc sherdog::relativeTime {date {useShortFormat ""}} {
+    set days [expr ([clock scan $date] - [clock scan 0]) / 60 / 60 / 24]
+    if {$days >= 60} {
+        set tm [expr $days / 30]
+        return [expr {$useShortFormat == "" ? [plural $tm month] : "${tm}m"}]
+    } elseif {$days >= 14} {
+        set tm [expr $days / 7]
+        return [expr {$useShortFormat == "" ? [plural $tm week] : "${tm}w"}]
+    }
+    return [expr {$useShortFormat == "" ? [plural $days day] : "${days}d"}]
+}
+
+proc sherdog::formatResult {result {c "\u25cf"}} {
     set ret $result
 
-    switch -- [string tolower $result] {
-        win  - w      {set ret "[c 9 03]W[/c]"}
-        loss - l      {set ret "[c 4 05]L[/c]"}
-        draw - d - md {set ret "[c 5 07]D[/c]"}
-        nc   - n - nd {set ret "[c 1 14]N[/c]"}
+    switch -nocase -- $result {
+        win  - w      {set ret "[c 03]$c[/c]"}
+        loss - l      {set ret "[c 04]$c[/c]"}
+        draw - d - md {set ret "[c 01]$c[/c]"}
+        nc   - n - nd {set ret "[c 15]$c[/c]"}
     }
 
     return $ret
 }
 
-proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
+proc sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
     set record [list $wins $losses $draws]
     if {$other} {
         lappend record $other
@@ -272,7 +313,7 @@ proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct f
     return [join $record "-"]
 }
 
-proc ::sherdog::add {listVar format args} {
+proc sherdog::add {listVar format args} {
     upvar $listVar l
     if {[llength $args] && [join $args ""] == ""} {
         return $l
@@ -280,13 +321,13 @@ proc ::sherdog::add {listVar format args} {
     return [lappend l [format $format {*}$args]]
 }
 
-proc ::sherdog::addn {listVar args} {
+proc sherdog::addn {listVar args} {
     upvar $listVar l
     lappend l " "
     return [add l {*}$args]
 }
 
-proc ::sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
+proc sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     set sizes {}
     set table {}
 
@@ -339,20 +380,10 @@ proc ::sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     return $tabulated
 }
 
-proc ::sherdog::c {color {bgcolor ""}} {
-    return "\003$color[expr {$bgcolor == "" ? "" : ",$bgcolor"}]"
-}
-proc ::sherdog::/c {} { return "\003" }
-proc ::sherdog::b  {} { return "\002" }
-proc ::sherdog::/b {} { return "\002" }
-proc ::sherdog::r  {} { return "\026" }
-proc ::sherdog::/r {} { return "\026" }
-proc ::sherdog::u  {} { return "\037" }
-proc ::sherdog::/u {} { return "\037" }
-
-proc ::sherdog::fetch {url args} {
-    http::register https 443 tls::socket
+proc sherdog::fetch {url args} {
     variable HTTP_TIMEOUT
+
+    http::register https 443 tls::socket
 
     set token ""
     if {[llength $args]} {
@@ -368,21 +399,298 @@ proc ::sherdog::fetch {url args} {
     return $response
 }
 
-proc ::sherdog::findLink {html {substr "http"}} {
+proc sherdog::findLink {html {substr "http"}} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
     return [$doc selectNodes [subst -nocommands {string(//a[contains(@href, '$substr')][1]/@href)}]]
 }
 
-proc ::sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
+proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
     set ret [string trim [$doc selectNodes "string($selector)"]]
     switch -- $format {
         string {
-            regsub -all {\s{2,}} $ret " " ret
+            set ret [collapse $ret]
         }
         date {
             catch {set ret [clock format [clock scan [string trim $ret /] -format $dateFormatIn] -format $dateFormatOut]}
         }
     }
     return $ret
+}
+
+proc sherdog::collapse {str} {
+    regsub -all {\s{2,}} [string trim $str] " " collapsed
+    return $collapsed
+}
+
+proc sherdog::plural {num unit {suffix "s"}} {
+    return [expr {$num == 1 ? "$num $unit" : "$num ${unit}$suffix"}]
+}
+
+proc sherdog::c {color {bgcolor ""}} {
+    return "\003$color[expr {$bgcolor == "" ? "" : ",$bgcolor"}]"
+}
+proc sherdog::/c {} { return "\003" }
+proc sherdog::b  {} { return "\002" }
+proc sherdog::/b {} { return "\002" }
+proc sherdog::r  {} { return "\026" }
+proc sherdog::/r {} { return "\026" }
+proc sherdog::u  {} { return "\037" }
+proc sherdog::/u {} { return "\037" }
+
+array set sherdog::countries {
+    {afghanistan} AFG
+    {aland islands} ALA
+    {albania} ALB
+    {algeria} DZA
+    {american samoa} ASM
+    {andorra} AND
+    {angola} AGO
+    {anguilla} AIA
+    {antarctica} ATA
+    {antigua and barbuda} ATG
+    {argentina} ARG
+    {armenia} ARM
+    {aruba} ABW
+    {australia} AUS
+    {austria} AUT
+    {azerbaijan} AZE
+    {bahamas} BHS
+    {bahrain} BHR
+    {bangladesh} BGD
+    {barbados} BRB
+    {belarus} BLR
+    {belgium} BEL
+    {belize} BLZ
+    {benin} BEN
+    {bermuda} BMU
+    {bhutan} BTN
+    {bolivia} BOL
+    {bonaire, sint eustatius and saba} BES
+    {bosnia and herzegovina} BIH
+    {botswana} BWA
+    {bouvet island} BVT
+    {brazil} BRA
+    {british indian ocean territory} IOT
+    {brunei darussalam} BRN
+    {bulgaria} BGR
+    {burkina faso} BFA
+    {burundi} BDI
+    {cabo verde} CPV
+    {cambodia} KHM
+    {cameroon} CMR
+    {canada} CAN
+    {cayman islands} CYM
+    {central african republic} CAF
+    {chad} TCD
+    {chile} CHL
+    {china} CHN
+    {christmas island} CXR
+    {cocos (keeling) islands} CCK
+    {colombia} COL
+    {comoros} COM
+    {congo} COG
+    {cook islands} COK
+    {costa rica} CRI
+    {croatia} HRV
+    {cuba} CUB
+    {curacao} CUW
+    {cyprus} CYP
+    {czech republic} CZE
+    {czechia} CZE
+    {czechoslovakia} CZE
+    {côte d'ivoire} CIV
+    {denmark} DNK
+    {djibouti} DJI
+    {dominica} DMA
+    {dominican republic} DOM
+    {ecuador} ECU
+    {egypt} EGY
+    {el salvador} SLV
+    {england} GBR
+    {equatorial guinea} GNQ
+    {eritrea} ERI
+    {estonia} EST
+    {eswatini} SWZ
+    {ethiopia} ETH
+    {falkland islands (malvinas)} FLK
+    {faroe islands} FRO
+    {fiji} FJI
+    {finland} FIN
+    {france} FRA
+    {french guiana} GUF
+    {french polynesia} PYF
+    {french southern territories} ATF
+    {gabon} GAB
+    {gambia} GMB
+    {georgia} GEO
+    {germany} DEU
+    {ghana} GHA
+    {gibraltar} GIB
+    {great britain} GBR
+    {greece} GRC
+    {greenland} GRL
+    {grenada} GRD
+    {guadeloupe} GLP
+    {guam} GUM
+    {guatemala} GTM
+    {guernsey} GGY
+    {guinea} GIN
+    {guinea-bissau} GNB
+    {guyana} GUY
+    {haiti} HTI
+    {heard island and mcdonald islands} HMD
+    {holland} NLD
+    {holy see} VAT
+    {honduras} HND
+    {hong kong} HKG
+    {hungary} HUN
+    {iceland} ISL
+    {india} IND
+    {indonesia} IDN
+    {iraq} IRQ
+    {ireland} IRL
+    {islamic republic of iran} IRN
+    {isle of man} IMN
+    {israel} ISR
+    {italy} ITA
+    {jamaica} JAM
+    {japan} JPN
+    {jersey} JEY
+    {jordan} JOR
+    {kazakhstan} KAZ
+    {kenya} KEN
+    {kiribati} KIR
+    {korea} KOR
+    {kuwait} KWT
+    {kyrgyzstan} KGZ
+    {lao} LAO
+    {latvia} LVA
+    {lebanon} LBN
+    {lesotho} LSO
+    {liberia} LBR
+    {libya} LBY
+    {liechtenstein} LIE
+    {lithuania} LTU
+    {luxembourg} LUX
+    {macao} MAC
+    {madagascar} MDG
+    {malawi} MWI
+    {malaysia} MYS
+    {maldives} MDV
+    {mali} MLI
+    {malta} MLT
+    {marshall islands} MHL
+    {martinique} MTQ
+    {mauritania} MRT
+    {mauritius} MUS
+    {mayotte} MYT
+    {mexico} MEX
+    {micronesia} FSM
+    {moldova} MDA
+    {monaco} MCO
+    {mongolia} MNG
+    {montenegro} MNE
+    {montserrat} MSR
+    {morocco} MAR
+    {mozambique} MOZ
+    {myanmar} MMR
+    {namibia} NAM
+    {nauru} NRU
+    {nepal} NPL
+    {netherlands} NLD
+    {new caledonia} NCL
+    {new zealand} NZL
+    {nicaragua} NIC
+    {niger} NER
+    {nigeria} NGA
+    {niue} NIU
+    {norfolk island} NFK
+    {north korea} PRK
+    {north macedonia} MKD
+    {northern ireland} GBR
+    {northern mariana islands} MNP
+    {norway} NOR
+    {oman} OMN
+    {pakistan} PAK
+    {palau} PLW
+    {palestine} PSE
+    {panama} PAN
+    {papua new guinea} PNG
+    {paraguay} PRY
+    {peru} PER
+    {philippines} PHL
+    {pitcairn} PCN
+    {poland} POL
+    {portugal} PRT
+    {puerto rico} PRI
+    {qatar} QAT
+    {romania} ROU
+    {russian federation} RUS
+    {rwanda} RWA
+    {réunion} REU
+    {saint-barthélemy} BLM
+    {saint helena} SHN
+    {saint kitts and nevis} KNA
+    {saint lucia} LCA
+    {saint martin} MAF
+    {saint pierre and miquelon} SPM
+    {saint vincent and the grenadines} VCT
+    {samoa} WSM
+    {san marino} SMR
+    {sao tome and principe} STP
+    {saudi arabia} SAU
+    {senegal} SEN
+    {serbia} SRB
+    {seychelles} SYC
+    {sierra leone} SLE
+    {singapore} SGP
+    {sint maarten} SXM
+    {slovakia} SVK
+    {slovenia} SVN
+    {solomon islands} SLB
+    {somalia} SOM
+    {south africa} ZAF
+    {south georgia and the south sandwich islands} SGS
+    {south korea} KOR
+    {south sudan} SSD
+    {spain} ESP
+    {sri lanka} LKA
+    {sudan} SDN
+    {suriname} SUR
+    {svalbard and jan mayen} SJM
+    {sweden} SWE
+    {switzerland} CHE
+    {syrian arab republic} SYR
+    {taiwan} TWN
+    {tajikistan} TJK
+    {tanzania} TZA
+    {thailand} THA
+    {timor-leste} TLS
+    {togo} TGO
+    {tokelau} TKL
+    {tonga} TON
+    {trinidad and tobago} TTO
+    {tunisia} TUN
+    {turkey} TUR
+    {turkmenistan} TKM
+    {turks and caicos islands} TCA
+    {tuvalu} TUV
+    {uganda} UGA
+    {ukraine} UKR
+    {united arab emirates} ARE
+    {united kingdom} GBR
+    {united states of america} USA
+    {uruguay} URY
+    {uzbekistan} UZB
+    {vanuatu} VUT
+    {venezuela} VEN
+    {viet nam} VNM
+    {vietnam} VNM
+    {virgin islands} VIR
+    {wallis and futuna} WLF
+    {western sahara} ESH
+    {yemen} YEM
+    {zambia} ZMB
+    {zimbabwe} ZWE
 }
