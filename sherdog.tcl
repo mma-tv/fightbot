@@ -255,13 +255,15 @@ proc sherdog::fightInfo {fight} {
 proc sherdog::countryCode {nationality {fmt "%s"}} {
     variable countries
     set c [string tolower [string trim $nationality]]
-    foreach expr [list $c "${c}*" "*${c}*"] {
-        set code [lindex [array get countries $expr] 1]
-        if {$code != ""} {
-            return [format $fmt $code]
+    if {$c != ""} {
+        foreach expr [list $c "${c}*" "*${c}" "*${c}*"] {
+            set code [lindex [array get countries $expr] 1]
+            if {$code != ""} {
+                return [format $fmt $code]
+            }
         }
+        catch {putlog "sherdog::countryCode() NO MATCH FOR $nationality"}
     }
-    putlog "sherdog::countryCode() NO MATCH FOR $nationality"
     return ""
 }
 
