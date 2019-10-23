@@ -5,7 +5,7 @@
 # Module: sherdog.tcl
 # Author: makk@EFnet
 # Description: Sherdog Fight Finder parser
-# Release Date: October 22, 2019
+# Release Date: October 23, 2019
 #
 ####################################################################
 
@@ -188,7 +188,7 @@ proc sherdog::print {fighter {maxColSizes {*}}} {
     return $output
 }
 
-proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}}} {
+proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponent true}} {
     set output {}
     set record "AMATEUR"
     set hasProFights [dict exists $fighter fights pro]
@@ -233,7 +233,7 @@ proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}}} {
         }
     }
 
-    if {[dict exists $fighter fights upcoming]} {
+    if {$showNextOpponent && [dict exists $fighter fights upcoming]} {
         dict with fighter fights upcoming {
             add output "Next opponent in %s: [b]%s[/b] (%s) on %s at %s"\
                 [relativeTime $date] $opponent $opponentRecord\
@@ -642,6 +642,7 @@ array set sherdog::countries {
     {san marino} SMR
     {sao tome and principe} STP
     {saudi arabia} SAU
+    {scotland} GBR
     {senegal} SEN
     {serbia} SRB
     {seychelles} SYC

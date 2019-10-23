@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 20, 2019
+#  Last Update: Oct 23, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -45,8 +45,9 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
+variable sherdogOptions [list -s 3 $defaultColSizes] ;# default sherdog search options
 
-variable scriptVersion "1.5.18"
+variable scriptVersion "1.5.19"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -106,6 +107,12 @@ proc send {unick dest text} {
         return [$put $unick $dest $text $putCommand $debugLogLevel]
     }
     return
+}
+
+proc msend {unick dest lines} {
+    foreach line $lines {
+        send $unick $dest $line
+    }
 }
 
 proc msg {target text} {
@@ -1122,7 +1129,7 @@ proc endPoll {} {
                             [b]$fighter2[/b] ($fighter2Votes/$fighter2Percentage)"\
                             "$totalVotes vote[s $totalVotes] locked in. Results after fight is over."] $eventName
                     } else {
-                        mmsg [list "Time's up!  No one voted on [b]$fighter1[/b] vs. [b]$fighter2[/b]."] $eventName
+                        mmsg [list "Time's up! No one voted on [b]$fighter1[/b] vs. [b]$fighter2[/b]."] $eventName
                     }
                 }
             }
@@ -1163,6 +1170,7 @@ proc startPoll {unick host handle dest index} {
 
     variable poll
     variable pollDuration
+    variable defaultColSizes
 
     if {![string is digit -strict $index]} {
         send $unick $dest "Usage: .poll <fight-index>"
@@ -1186,6 +1194,10 @@ proc startPoll {unick host handle dest index} {
         }
         togglePoll "on"
         runAnnouncement [expr $pollDuration * 60]
+
+        foreach fighter {fighter1 fighter2} {
+            msend $dest $dest [sherdog::query $fight($fighter) -s 0 $defaultColSizes false]
+        }
     }
     return 1
 }
@@ -1869,7 +1881,7 @@ proc showStreaks {unick host handle dest text} {
     } elseif {$offset > 0 || $maxStreak > 0} {
         send $unick $dest "No more results."
     } else {
-        send $unick $dest "No one is on a win streak!  You guys suck."
+        send $unick $dest "No one is on a win streak! You guys suck."
     }
 
     return [logStackable $unick $host $handle $dest $text]
@@ -1931,70 +1943,74 @@ mbind {msg pub} - {
 } ${ns}::worstStreaks
 
 proc searchSherdog {unick host handle dest text} {
+    variable poll
+    variable maxPublicLines
+    variable defaultColSizes
+    variable sherdogOptions
+
     if {![onPollChan $unick]} { return 1 }
 
     set cmd [lindex [split $text] 0]
     set query [string trim [join [lrange [split $text] 1 end]]]
     regexp {^\S+?(\d*|\*),?([*\d,]+)?$} $cmd m limit columns
 
-    variable ns
-    variable poll
-    variable maxPublicLines
-    variable defaultColSizes
-    set showUsage 0
-    if {$query == ""} {
-        if {[info exists poll(current)]} {
-            searchSherdog $unick $host $handle $dest $poll($poll(current),fighter1)
-            searchSherdog $unick $host $handle $dest $poll($poll(current),fighter2)
-        } else {
-            set showUsage 1
-        }
-    } elseif {[regexp {^!\d+$} $query]} {
-        if {[info exists poll(current)]} {
-            set fighter [expr {$query == "!1" ? "fighter1" : "fighter2"}]
-            searchSherdog $unick $host $handle $dest $poll($poll(current),$fighter)
-        } else {
-            set showUsage 1
-        }
-    } elseif {[string is integer $query]} {
-        if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $query]} {
-            searchSherdog $unick $host $handle $dest $fight(fighter1)
-            searchSherdog $unick $host $handle $dest $fight(fighter2)
-        }
-    } elseif {[regexp -nocase {^(\d\d?)([ab])$} $query m fightIndex fighterId]} {
-        if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
-            set fighter [expr {[string tolower $fighterId] == "a" ? "fighter1" : "fighter2"}]
-            searchSherdog $unick $host $handle $dest $fight($fighter)
-        }
-    } else {
-        set columns [split $columns ,]
-        if {[llength $columns] == 0 && [string index $cmd end] != ","} {
-            set columns $defaultColSizes
-        }
+    set columns [split $columns ,]
+    if {[llength $columns] == 0 && [string index $cmd end] != ","} {
+        set columns $defaultColSizes
+    }
 
-        send $unick $dest "Searching Sherdog Fight Finder for '$query'. Please wait..."
+    set target $unick
+    set queryOptions [list -v $columns]
+    if {[string is digit -strict $limit]} {
+        set queryOptions [list -s $limit $columns]
+        set target $dest
+    }
 
-        set target $unick
-        set queryOptions [list -v $columns]
-        if {[string is digit -strict $limit]} {
-            set queryOptions [list -s $limit $columns]
-            set target $dest
-        }
+    set queries {}
 
-        if {[catch {set results [sherdog::query $query {*}$queryOptions]} err]} {
-            send $unick $dest $err
-        } else {
-            if {[llength $results] > $maxPublicLines} {
-                set target $unick
+    switch -nocase -regexp -matchvar match -- $query {
+        {^$} {
+            if {[info exists poll(current)]} {
+                lappend queries $poll($poll(current),fighter1) $poll($poll(current),fighter2)
             }
-            foreach line $results {
-                send $target $dest $line
+        }
+        {^!([12])~?$} {
+            if {[info exists poll(current)]} {
+                lappend queries $poll($poll(current),fighter[lindex $match 1])
             }
+        }
+        {^\d+$} {
+            if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $match]} {
+                lappend queries $fight(fighter1) $fight(fighter2)
+            }
+        }
+        {^(\d+)([ab])$} {
+            set fightIndex [lindex $match 1]
+            if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
+                set fighterId [string tolower [lindex $match 2]]
+                lappend queries $fight(fighter[expr {$fighterId == "a" ? 1 : 2}])
+            }
+        }
+        default {
+            lappend queries $query
         }
     }
 
-    if {$showUsage} {
-        send $unick $dest {No poll is currently running, Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
+    if {[llength $queries]} {
+        foreach q $queries {
+            send $unick $dest "Searching Sherdog Fight Finder for '$q'. Please wait..."
+
+            if {[catch {set results [sherdog::query $q {*}$queryOptions]} err]} {
+                send $unick $dest $err
+            } else {
+                if {[llength $results] > $maxPublicLines} {
+                    set target $unick
+                }
+                msend $target $dest $results
+            }
+        }
+    } else {
+        send $unick $dest {No poll is currently running. Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
     }
 
     return [logStackable $unick $host $handle $dest $text]
