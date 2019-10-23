@@ -45,7 +45,6 @@ variable putCommand      putnow        ;# send function: putnow, putquick, putse
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
-variable sherdogOptions [list -s 3 $defaultColSizes] ;# default sherdog search options
 
 variable scriptVersion "1.5.19"
 variable ns [namespace current]
@@ -1946,7 +1945,6 @@ proc searchSherdog {unick host handle dest text} {
     variable poll
     variable maxPublicLines
     variable defaultColSizes
-    variable sherdogOptions
 
     if {![onPollChan $unick]} { return 1 }
 
