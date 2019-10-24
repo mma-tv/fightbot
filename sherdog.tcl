@@ -107,6 +107,8 @@ proc sherdog::parse {html {url ""}} {
         dict set fighter fights $id history [lreverse $history]
     }
 
+    $dom delete
+
     return $fighter
 }
 
@@ -404,7 +406,9 @@ proc sherdog::fetch {url args} {
 proc sherdog::findLink {html {substr "http"}} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
-    return [$doc selectNodes [subst -nocommands {string(//a[contains(@href, '$substr')][1]/@href)}]]
+    set link [$doc selectNodes [subst -nocommands {string(//a[contains(@href, '$substr')][1]/@href)}]]
+    $dom delete
+    return $link
 }
 
 proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
