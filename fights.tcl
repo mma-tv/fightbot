@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 23, 2019
+#  Last Update: Oct 26, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -46,7 +46,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.19"
+variable scriptVersion "1.5.20"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1195,7 +1195,9 @@ proc startPoll {unick host handle dest index} {
         runAnnouncement [expr $pollDuration * 60]
 
         foreach fighter {fighter1 fighter2} {
-            msend $dest $dest [sherdog::query $fight($fighter) -s 0 $defaultColSizes false]
+            if {[sherdog::query $fight($fighter) results err -s 0 $defaultColSizes false]} {
+                msend $dest $dest $results
+            }
         }
     }
     return 1
@@ -1996,15 +1998,13 @@ proc searchSherdog {unick host handle dest text} {
 
     if {[llength $queries]} {
         foreach q $queries {
-            send $unick $dest "Searching Sherdog Fight Finder for '$q'. Please wait..."
-
-            if {[catch {set results [sherdog::query $q {*}$queryOptions]} err]} {
-                send $unick $dest $err
-            } else {
+            if {[sherdog::query $q results err {*}$queryOptions]} {
                 if {[llength $results] > $maxPublicLines} {
                     set target $unick
                 }
                 msend $target $dest $results
+            } else {
+                send $unick $dest $err
             }
         }
     } else {

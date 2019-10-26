@@ -5,7 +5,7 @@
 # Module: sherdog.tcl
 # Author: makk@EFnet
 # Description: Sherdog Fight Finder parser
-# Release Date: October 23, 2019
+# Release Date: October 26, 2019
 #
 ####################################################################
 
@@ -22,6 +22,13 @@ namespace eval sherdog {
     variable SEARCH_QUERY "site:sherdog.com/fighter %s"
     variable SEARCH_LINK  "sherdog.com/fighter/"
     variable HTTP_TIMEOUT 5000
+    variable CACHE_EXPIRATION 180 ;# minutes
+
+    variable cache
+}
+
+if {[info commands putlog] == ""} {
+    proc putlog {s} { puts "\[*\] $s" }
 }
 
 proc sherdog::parse {html {url ""}} {
@@ -39,7 +46,7 @@ proc sherdog::parse {html {url ""}} {
         weightClass [select $doc {//*[contains(@class, 'wclass')]//a}]\
         nationality [select $doc {//*[@itemprop='nationality']}]\
         association [select $doc {//*[contains(@class, 'association')]//strong}]\
-        url [regsub {\#.*} $url ""]\
+        url $url\
         age ""\
     ]
 
@@ -112,30 +119,50 @@ proc sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc sherdog::query {query {mode -verbose} args} {
+proc sherdog::query {query response err {mode -verbose} args} {
     variable SEARCH_BASE
     variable SEARCH_QUERY
     variable SEARCH_LINK
 
-    set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
-    set url [findLink $searchResults $SEARCH_LINK]
+    upvar $response res
+    upvar $err e
+    set res {}
+    set e ""
+
+    set url [cache link $query]
     if {$url == ""} {
-        throw "NO_MATCH" "No match for '$query' in the Sherdog Fight Finder."
+        putlog "Searching for sherdog link matching '$query'"
+        set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
+        set url [findLink $searchResults $SEARCH_LINK]
+        regsub {\#.*} $url "" url
+        if {$url == ""} {
+            set e "No match for '$query' in the Sherdog Fight Finder."
+            return false
+        }
+        cache link $query $url
     }
 
-    set html [fetch $url]
-    set data [parse $html $url]
+    set data [cache data $url]
+    if {$data == ""} {
+        putlog "Fetching sherdog content at $url"
+        set html [fetch $url]
+        if {[catch {set data [parse $html $url]}]} {
+            set e "Failed to parse Sherdog content at $url for '$query' query. Notify the bot developer."
+            return false
+        }
+        cache data $url $data
+    }
 
     switch -- $mode {
-        -v - -verbose - -f - -full - -l - -long {
-            set data [print $data {*}$args]
-        }
         -s - -short - -summary {
-            set data [printSummary $data {*}$args]
+            set res [printSummary $data {*}$args]
+        }
+        default {
+            set res [print $data {*}$args]
         }
     }
 
-    return $data
+    return true
 }
 
 proc sherdog::print {fighter {maxColSizes {*}}} {
@@ -264,7 +291,7 @@ proc sherdog::countryCode {nationality {fmt "%s"}} {
                 return [format $fmt $code]
             }
         }
-        catch {putlog "sherdog::countryCode() NO MATCH FOR $nationality"}
+        putlog "sherdog::countryCode() NO MATCH FOR $nationality"
     }
     return ""
 }
@@ -422,6 +449,44 @@ proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {da
         }
     }
     return $ret
+}
+
+proc sherdog::cache {store key args} {
+    variable cache
+    variable CACHE_EXPIRATION
+    set now [clock seconds]
+    set k [string tolower $key]
+
+    if {[llength $args]} {
+        set cache($store,$k) [list $now [lindex $args 0]]
+    } elseif {[info exists cache($store,$k)]} {
+        foreach {timestamp data} $cache($store,$k) {
+            set minutesElapsed [expr ($now - $timestamp) / 60]
+            if {[expr $minutesElapsed <= $CACHE_EXPIRATION]} {
+                return $data
+            }
+        }
+        array unset cache "$store,$k"
+    }
+    return ""
+}
+
+proc sherdog::pruneCache {} {
+    variable cache
+    variable CACHE_EXPIRATION
+
+    set now [clock seconds]
+    foreach key [array names cache] {
+        set minutesElapsed [lindex $cache($key) 0]
+        if {[expr ($now - $minutesElapsed) / 60] > $CACHE_EXPIRATION} {
+            array unset cache $key
+        }
+    }
+}
+
+proc sherdog::emptyCache {} {
+    variable cache
+    array unset cache
 }
 
 proc sherdog::collapse {str} {
