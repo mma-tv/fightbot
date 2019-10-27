@@ -523,17 +523,17 @@ proc sherdog::splitString {str substr} {
 }
 
 proc closeDanglingCtrlCodes {str} {
-	set s $str
-	set matches {}
-	foreach c {\002 \003 \026 \037} {
-		if {[expr [regexp -all -indices $c $str i] & 1]} {
-			lappend matches [lindex $i 0]
-		}
-	}
-	foreach c [lsort -decreasing $matches] {
-		append s [string index $str $c]
-	}
-	return $s
+    set s $str
+    set matches {}
+    foreach c {\002 \003 \026 \037} {
+        if {[expr [regexp -all -indices $c $str i] & 1]} {
+            lappend matches [lindex $i 0]
+        }
+    }
+    foreach c [lsort -decreasing $matches] {
+        append s [string index $str $c]
+    }
+    return $s
 }
 
 proc sherdog::collapse {str} {
