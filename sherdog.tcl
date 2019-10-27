@@ -22,6 +22,7 @@ namespace eval sherdog {
     variable SEARCH_QUERY "site:sherdog.com/fighter %s"
     variable SEARCH_LINK  "sherdog.com/fighter/"
     variable HTTP_TIMEOUT 5000
+    variable USE_CACHE    true
     variable CACHE_EXPIRATION 180 ;# minutes
 
     variable cache
@@ -483,6 +484,12 @@ proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {da
 proc sherdog::cache {store key args} {
     variable cache
     variable CACHE_EXPIRATION
+    variable USE_CACHE
+
+    if {!$USE_CACHE} {
+        return ""
+    }
+
     set now [clock seconds]
     set k [string tolower $key]
 
