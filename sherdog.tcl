@@ -5,7 +5,7 @@
 # Module: sherdog.tcl
 # Author: makk@EFnet
 # Description: Sherdog Fight Finder parser
-# Release Date: October 26, 2019
+# Release Date: October 27, 2019
 #
 ####################################################################
 
@@ -133,7 +133,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     if {$url == ""} {
         putlog "Searching for sherdog link matching '$query'"
         set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
-        set url [findLink $searchResults $SEARCH_LINK]
+        set url [getFirstSearchResult $searchResults $SEARCH_LINK]
         regsub {\#.*} $url "" url
         if {$url == ""} {
             set e "No match for '$query' in the Sherdog Fight Finder."
@@ -413,27 +413,51 @@ proc sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
 
 proc sherdog::fetch {url args} {
     variable HTTP_TIMEOUT
+    set response ""
+    set token ""
+    set MAX_REDIRECTS 5
 
     http::register https 443 tls::socket
 
-    set token ""
-    if {[llength $args]} {
-        set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
-    } else {
-        set token [http::geturl $url -timeout $HTTP_TIMEOUT]
+    array set URI [uri::split $url]
+    for {set i 0} {$i < $MAX_REDIRECTS} {incr i} {
+        if {[llength $args]} {
+            set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
+        } else {
+            set token [http::geturl $url -timeout $HTTP_TIMEOUT]
+        }
+        if {![string match {30[1237]} [http::ncode $token]]} {
+            break
+        }
+        set location [lmap {k v} [set ${token}(meta)] {
+            if {[string match -nocase location $k]} {set v} continue
+        }]
+        if {$location eq {}} {
+            break
+        }
+        array set uri [uri::split $location]
+        if {$uri(host) eq {}} {
+            set uri(host) $URI(host)
+        }
+        # problem w/ relative versus absolute paths
+        set url [uri::join {*}[array get uri]]
+        http::cleanup $token
+        set token ""
     }
-    set status [http::status $token]
-    set response [http::data $token]
-    http::cleanup $token
-    http::unregister https
 
+    if {$token ne ""} {
+        set response [http::data $token]
+        http::cleanup $token
+    }
+
+    http::unregister https
     return $response
 }
 
-proc sherdog::findLink {html {substr "http"}} {
+proc sherdog::getFirstSearchResult {html {substr "http"}} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
-    set link [$doc selectNodes [subst -nocommands {string(//a[contains(@href, '$substr')][1]/@href)}]]
+    set link [$doc selectNodes [subst -nocommands {string(//h2//a[contains(@href, '$substr')][1]/@href)}]]
     $dom delete
     return $link
 }
@@ -765,4 +789,14 @@ array set sherdog::countries {
     {yemen} YEM
     {zambia} ZMB
     {zimbabwe} ZWE
+}
+
+proc sherdog::test {filename args} {
+    set fp [open $filename r]
+    set data [read $fp]
+    close $fp
+
+    foreach line [print [parse $data] {*}$args] {
+        puts $line
+    }
 }
