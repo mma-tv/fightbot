@@ -522,16 +522,16 @@ proc sherdog::splitString {str substr} {
     return [split [string map [list $substr \uffff] $str] \uffff]
 }
 
-proc closeDanglingCtrlCodes {text} {
-	set s $text
+proc closeDanglingCtrlCodes {str} {
+	set s $str
 	set matches {}
 	foreach c {\002 \003 \026 \037} {
-		if {[expr [regexp -all -indices $c $text i] & 1]} {
+		if {[expr [regexp -all -indices $c $str i] & 1]} {
 			lappend matches [lindex $i 0]
 		}
 	}
 	foreach c [lsort -decreasing $matches] {
-		append s [string index $text $c]
+		append s [string index $str $c]
 	}
 	return $s
 }
