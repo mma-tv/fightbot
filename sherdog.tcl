@@ -363,7 +363,7 @@ proc sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     set table {}
 
     foreach line $data {
-        set cols [split [regsub -all [regsub -all {\W} $sep {\\&}] $line \0] \0]
+        set cols [splitString $line $sep]
 
         # remove columns that have been given 0 size
         for {set i [expr {[llength $cols] - 1}]} {$i >= 0} {incr i -1} {
@@ -405,7 +405,12 @@ proc sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     set tabulated {}
 
     foreach cols $table {
-        lappend tabulated [format [join $columnFormats $sep] {*}$cols]
+        set formatted {}
+        set formattedCols [format [join $columnFormats $sep] {*}$cols]
+        foreach col [splitString $formattedCols $sep] {
+            lappend formatted [closeDanglingCtrlCodes $col]
+        }
+        lappend tabulated [join $formatted $sep]
     }
 
     return $tabulated
@@ -511,6 +516,24 @@ proc sherdog::pruneCache {} {
 proc sherdog::emptyCache {} {
     variable cache
     array unset cache
+}
+
+proc sherdog::splitString {str substr} {
+    return [split [string map [list $substr \uffff] $str] \uffff]
+}
+
+proc closeDanglingCtrlCodes {text} {
+	set s $text
+	set matches {}
+	foreach c {\002 \003 \026 \037} {
+		if {[expr [regexp -all -indices $c $text i] & 1]} {
+			lappend matches [lindex $i 0]
+		}
+	}
+	foreach c [lsort -decreasing $matches] {
+		append s [string index $text $c]
+	}
+	return $s
 }
 
 proc sherdog::collapse {str} {
