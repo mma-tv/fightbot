@@ -1950,6 +1950,8 @@ proc searchSherdog {unick host handle dest text} {
 
     if {![onPollChan $unick]} { return 1 }
 
+    logStackable $unick $host $handle $dest $text
+
     set cmd [lindex [split $text] 0]
     set query [string trim [join [lrange [split $text] 1 end]]]
     regexp {^\S+?(\d*|\*),?([*\d,]+)?$} $cmd m limit columns
@@ -2011,7 +2013,7 @@ proc searchSherdog {unick host handle dest text} {
         send $unick $dest {No poll is currently running. Usage: .sherdog <fighter> or .sherdog <index>[a|b]}
     }
 
-    return [logStackable $unick $host $handle $dest $text]
+    return 1
 }
 mbind {msgm pubm} - {"% .sh*"} ${ns}::searchSherdog
 
