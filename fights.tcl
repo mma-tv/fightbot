@@ -2016,6 +2016,7 @@ proc searchSherdog {unick host handle dest text} {
     return 1
 }
 mbind {msgm pubm} - {"% .sh*"} ${ns}::searchSherdog
+bind time - "30 * * * *" sherdog::pruneCache
 
 proc best {unick host handle dest text} {
     if {![onPollChan $unick]} { return 1 }

@@ -23,7 +23,7 @@ namespace eval sherdog {
     variable SEARCH_LINK  "sherdog.com/fighter/"
     variable HTTP_TIMEOUT 5000
     variable USE_CACHE    true
-    variable CACHE_EXPIRATION 180 ;# minutes
+    variable CACHE_EXPIRATION 90 ;# minutes
 
     variable cache
 }
@@ -507,7 +507,7 @@ proc sherdog::cache {store key args} {
     return ""
 }
 
-proc sherdog::pruneCache {} {
+proc sherdog::pruneCache {args} {
     variable cache
     variable CACHE_EXPIRATION
 
@@ -520,7 +520,7 @@ proc sherdog::pruneCache {} {
     }
 }
 
-proc sherdog::emptyCache {} {
+proc sherdog::clearCache {args} {
     variable cache
     array unset cache
 }
