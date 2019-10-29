@@ -18,10 +18,11 @@ namespace eval ::util:: {
     namespace export -clear loadDatabase s populate tz timeDiff toGMT toLocal\
         now currentYear timezone formatShortDate formatDateTime formatWordDate\
         formatWordDateTime put putMessage putNotice putAction mbind logStackable\
-        c /c b /b r /r u /u bindSQL scheduleBackup registerCleanup htmlDecode\
-        parseHTML geturlex
+        c /c b /b r /r u /u bindSQL scheduleBackup registerCleanup
 
     variable ns [namespace current]
+    variable HTTP_TIMEOUT 5000
+    variable HTTP_MAX_REDIRECTS 5
     variable maxMessageLen 510
     variable maxLineWrap   5  ;# max lines to wrap when text is too long
     variable floodExempt   1  ;# set to 1 if the bot is exempt from flood limits
@@ -400,100 +401,45 @@ proc ::util::registerCleanup {nsRef db} {
     return [bind evnt - prerehash [list ${ns}::cleanup $nsRef $db]]
 }
 
-proc ::util::geturlex {url args} {
-    http::config -useragent "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0)"
+proc ::util::fetch {url args} {
+    variable HTTP_TIMEOUT
+    variable HTTP_MAX_REDIRECTS
+    set response ""
+    set token ""
 
-    array set URI [::uri::split $url] ;# Need host info from here
-    foreach x {1 2 3 4 5} {
-        if {[catch {set token [eval [list http::geturl $url] $args]}]} {
+    http::register https 443 tls::socket
+
+    array set URI [uri::split $url]
+    for {set i 0} {$i < $HTTP_MAX_REDIRECTS} {incr i} {
+        if {[llength $args]} {
+            set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
+        } else {
+            set token [http::geturl $url -timeout $HTTP_TIMEOUT]
+        }
+        if {![string match {30[1237]} [http::ncode $token]]} {
             break
         }
-        if {![string match {30[1237]} [::http::ncode $token]]} {
-            return $token
+        set location [lmap {k v} [set ${token}(meta)] {
+            if {[string match -nocase location $k]} {set v} continue
+        }]
+        if {$location eq {}} {
+            break
         }
-        array set meta [set ${token}(meta)]
-        set location [lsearch -inline -nocase -exact [array names meta] "location"]
-        if {$location eq ""} {
-            return $token
-        }
-        array set uri [::uri::split $meta($location)]
-        unset meta
-        if {$uri(host) eq ""} {
+        array set uri [uri::split $location]
+        if {$uri(host) eq {}} {
             set uri(host) $URI(host)
         }
         # problem w/ relative versus absolute paths
-        set url [eval ::uri::join [array get uri]]
+        set url [uri::join {*}[array get uri]]
+        http::cleanup $token
+        set token ""
     }
-    return -1
-}
 
-array set ::util::htmlEntityMap {
-    quot \x22 amp \x26 lt \x3C gt \x3E nbsp \xA0 iexcl \xA1 cent \xA2 pound \xA3
-    curren \xA4 yen \xA5 brvbar \xA6 sect \xA7 uml \xA8 copy \xA9 ordf \xAA
-    laquo \xAB not \xAC shy \xAD reg \xAE macr \xAF deg \xB0 plusmn \xB1
-    sup2 \xB2 sup3 \xB3 acute \xB4 micro \xB5 para \xB6 middot \xB7 cedil \xB8
-    sup1 \xB9 ordm \xBA raquo \xBB frac14 \xBC frac12 \xBD frac34 \xBE
-    iquest \xBF Agrave \xC0 Aacute \xC1 Acirc \xC2 Atilde \xC3 Auml \xC4
-    Aring \xC5 AElig \xC6 Ccedil \xC7 Egrave \xC8 Eacute \xC9 Ecirc \xCA
-    Euml \xCB Igrave \xCC Iacute \xCD Icirc \xCE Iuml \xCF ETH \xD0 Ntilde \xD1
-    Ograve \xD2 Oacute \xD3 Ocirc \xD4 Otilde \xD5 Ouml \xD6 times \xD7
-    Oslash \xD8 Ugrave \xD9 Uacute \xDA Ucirc \xDB Uuml \xDC Yacute \xDD
-    THORN \xDE szlig \xDF agrave \xE0 aacute \xE1 acirc \xE2 atilde \xE3
-    auml \xE4 aring \xE5 aelig \xE6 ccedil \xE7 egrave \xE8 eacute \xE9
-    ecirc \xEA euml \xEB igrave \xEC iacute \xED icirc \xEE iuml \xEF eth \xF0
-    ntilde \xF1 ograve \xF2 oacute \xF3 ocirc \xF4 otilde \xF5 ouml \xF6
-    divide \xF7 oslash \xF8 ugrave \xF9 uacute \xFA ucirc \xFB uuml \xFC
-    yacute \xFD thorn \xFE yuml \xFF
-    ob \x7b cb \x7d bsl \\
-    #8203 "" #x200b "" ndash - #8211 - #x2013 - mdash -- #8212 -- #x2014 --
-    #x202a "" #x202c "" rlm "" circ ^ #710 ^ #x2c6 ^ tilde ~ #732 ~ #x2dc ~
-    lsquo ' #8216 ' #x2018 ' rsquo ' #8217 ' #x2019 ' sbquo ' #8218 ' #x201a '
-    ldquo \" #8220 \" #x201c \" rdquo \" #8221 \" #x201d \" bdquo \" #8222 \" #x201e \"
-    dagger | #8224 | #x2020 | Dagger | #8225 | #x2021 |
-    lsaquo < #8249 < #x2039 < rsaquo > #8250 > #x203a >
-}
-
-proc ::util::getHTMLEntity {text {unknown ?}} {
-    variable htmlEntityMap
-    set result $unknown
-    catch {set result $htmlEntityMap($text)}
-    return $result
-}
-
-proc ::util::htmlDecode {text} {
-    if {![regexp & $text]} {
-        return $text
+    if {$token ne ""} {
+        set response [http::data $token]
+        http::cleanup $token
     }
-    regsub -all {([][$\\])} $text {\\\1} new
-    regsub -all {&(#[xX]?[\da-fA-F]{1,4});} $new {[getHTMLEntity [string tolower \1] "\x26\1;"]} new
-    regsub -all {([][$\\])} [subst $new] {\\\1} new
-    regsub -all {&#(\d{1,4});} $new {[format %c [scan \1 %d tmp;set tmp]]} new
-    regsub -all {&#[xX]([\da-fA-F]{1,4});} $new {[format %c [scan [expr "0x\1"] %d tmp;set tmp]]} new
-    regsub -all {&([a-zA-Z]+);} $new {[getHTMLEntity \1]} new
-    return [subst $new]
-}
 
-proc ::util::parseHTML {html {cmd testParser} {start hmstart}} {
-    regsub -all \{ $html {\&ob;} html
-    regsub -all \} $html {\&cb;} html
-    regsub -all {\\} $html {\&bsl;} html
-    set w " \t\r\n"  ;# white space
-    set exp <(/?)(\[^$w>]+)\[$w]*(\[^>]*)>
-    set sub "\}\n$cmd {\\2} {\\1} {\\3} \{"
-    regsub -all $exp $html $sub html
-    eval "$cmd {$start} {} {} {$html}"
-    eval "$cmd {$start} / {} {}"
-}
-
-proc ::util::testParser {tag state props body} {
-    if {$state eq ""} {
-        set msg "Start $tag"
-        if {$props ne ""} {
-            set msg "$msg with args: $props"
-        }
-        set msg "$msg\n$body"
-    } else {
-        set msg "End $tag"
-    }
-    putlog $msg
+    http::unregister https
+    return $response
 }
