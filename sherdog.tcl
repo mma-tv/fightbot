@@ -5,7 +5,8 @@
 # Module: sherdog.tcl
 # Author: makk@EFnet
 # Description: Sherdog Fight Finder parser
-# Release Date: October 27, 2019
+# Release Date: Oct 20, 2019
+#  Last Update: Oct 28, 2019
 #
 ####################################################################
 
@@ -227,16 +228,7 @@ proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponen
         dict with fighter fights pro record {
             set record [formatRecord $wins $losses $draws $other]
         }
-
-        set widget ""
-
-        foreach fight [lrange [dict get $fighter fights pro history] end-19 end] {
-            dict with fight {
-                append widget [formatResult $result]
-            }
-        }
-
-        append record " $widget"
+        append record " [graphicalRecord $fighter 20]"
     }
 
     dict with fighter {
@@ -280,6 +272,22 @@ proc sherdog::fightInfo {fight} {
             [formatResult $result "\u258c"] [string toupper [string index $result 0]]\
             $opponent $date $event $method $round $time $ref]
     }
+}
+
+proc sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
+    set widget ""
+
+    if {[dict exists $fighter fights pro history]} {
+        append widget $prefix
+
+        foreach fight [lrange [dict get $fighter fights pro history] end-[expr $limit - 1] end] {
+            dict with fight {
+                append widget [formatResult $result]
+            }
+        }
+    }
+
+    return $widget
 }
 
 proc sherdog::countryCode {nationality {fmt "%s"}} {

@@ -10,7 +10,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 26, 2019
+#  Last Update: Oct 28, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -46,7 +46,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.20"
+variable scriptVersion "1.5.21"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1151,10 +1151,20 @@ proc runAnnouncement {seconds} {
         set eventName $poll($key,eventName)
 
         if {$seconds > 0} {
+            array set record {}
+            foreach fighter [list $fighter1 $fighter2] {
+                set data [sherdog::cache data [sherdog::cache link $fighter]]
+                set record($fighter) [sherdog::graphicalRecord $data 10]
+            }
+            set fighters [sherdog::tabulate [list\
+                "$fighter1 | $record($fighter1)"\
+                "$fighter2 | $record($fighter2)"\
+            ]]
+
             mmsg [list\
                 "[b]$fighter1[/b] vs. [b]$fighter2[/b]"\
-                "!1 -> $fighter1"\
-                "!2 -> $fighter2"\
+                "!1 -> [string trimright [string map {{ | } { }} [lindex $fighters 0]]]"\
+                "!2 -> [string trimright [string map {{ | } { }} [lindex $fighters 1]]]"\
                 "Voting !1~ or !2~ will not affect your stats."\
             ] $eventName
             set pollTimer [utimer $pollInterval [list ${ns}::runAnnouncement [expr $seconds - $pollInterval]]]
@@ -1192,13 +1202,13 @@ proc startPoll {unick host handle dest index} {
                 locked = 0 WHERE id = :fight(id)
         }
         togglePoll "on"
-        runAnnouncement [expr $pollDuration * 60]
 
+        # cache sherdog information for both fighters
         foreach fighter {fighter1 fighter2} {
-            if {[sherdog::query $fight($fighter) results err -s 0 $defaultColSizes false]} {
-                msend $dest $dest $results
-            }
+            sherdog::query $fight($fighter) results err
         }
+
+        runAnnouncement [expr $pollDuration * 60]
     }
     return 1
 }
