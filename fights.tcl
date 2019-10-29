@@ -10,17 +10,18 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 28, 2019
+#  Last Update: Oct 29, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
 ####################################################################
 
-source "[file dirname [info script]]/util.tcl"
-source "[file dirname [info script]]/sherdog.tcl"
-
+foreach script {util sherdog bestfightodds} {
+    source "[file dirname [info script]]/$script.tcl"
+}
 package require util
 package require sherdog
+package require bestfightodds
 package require http
 package require tdom
 package require tls
@@ -46,7 +47,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.22"
+variable scriptVersion "1.5.23"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -256,146 +257,56 @@ proc selectFight {unick host dest index {eventIndex -1}} {
     return 0
 }
 
-proc importFights {unick host handle dest text} {
-    if {![onPollChan $unick]} { return 0 }
-
-    variable ns
-    variable imports
-
-    set url "http://www.bestfightodds.com/"
-    send $unick $dest "Importing fights from $url. Please wait..."
-
-    array unset imports
-    if {[catch {parseHTML [http::data [geturlex $url]] ${ns}::parseBestFightOdds}]} {
-        send $unick $dest "Connection to '$url' failed. Please try again later."
-        return 1
+proc importFights {} {
+    if {![bestfightodds::import events err]} {
+        putlog "Failed to import fights: $err"
+        return false
     }
 
-    set totalEvents 0
-    set totalFights 0
-
-    foreach key [array names imports "event,*"] {
-        incr totalEvents
-        set eventName [string range $key 6 end]
-        set eventDate [lindex $imports($key) 0]
-        if {[db eval {INSERT OR IGNORE INTO events (name, start_date) VALUES(:eventName, :eventDate)}]} {
-            set eventId [db last_insert_rowid]
-        } else {
-            db eval {UPDATE events SET name = :eventName WHERE name = :eventName}
-            set eventId [db onecolumn {SELECT id FROM events WHERE name = :eventName}]
-        }
-        foreach {fighter1 odds1 fighter2 odds2} [lrange $imports($key) 1 end] {
-            if {$fighter1 ne "" && $fighter2 ne ""} {
-                incr totalFights
-                if {![db eval {
-                    INSERT OR IGNORE INTO fights (event_id, fighter1, fighter2, fighter1_odds, fighter2_odds)
-                        VALUES(:eventId, :fighter1, :fighter2, :odds1, :odds2)}]
-                } {
-                    db eval {
-                        UPDATE fights SET fighter1 = :fighter1, fighter2 = :fighter2,
-                            fighter1_odds = :odds1, fighter2_odds = :odds2
-                            WHERE event_id = :eventId AND fighter1 = :fighter1 AND fighter2 = :fighter2
+    foreach eventInfo $events {
+        dict with eventInfo {
+            if {[db eval {INSERT OR IGNORE INTO events (name, start_date) VALUES(:event, :date)}]} {
+                set eventId [db last_insert_rowid]
+            } else {
+                db eval {UPDATE events SET name = :event WHERE name = :event}
+                set eventId [db onecolumn {SELECT id FROM events WHERE name = :event}]
+            }
+            foreach fight $fights {
+                dict with fight {
+                    if {![db eval {
+                        INSERT OR IGNORE INTO fights (event_id, fighter1, fighter2, fighter1_odds, fighter2_odds)
+                            VALUES(:eventId, :fighter1, :fighter2, :odds1, :odds2)}]
+                    } {
+                        db eval {
+                            UPDATE fights SET fighter1 = :fighter1, fighter2 = :fighter2,
+                                fighter1_odds = :odds1, fighter2_odds = :odds2
+                                WHERE event_id = :eventId AND fighter1 = :fighter1 AND fighter2 = :fighter2
+                        }
                     }
                 }
             }
         }
     }
 
-    if {$dest ne ""} {
-        listEvents $unick $host $handle $dest ".events"
-    }
+    return true
+}
 
-    array unset imports
-    send $unick $dest "Successfully imported $totalEvents event[s $totalEvents]\
-        and $totalFights fight[s $totalFights]."
+proc importFightsJob {minute hour day month year} {
+    importFights
+}
+bind time - "[lindex [split $updateTime :] 1] [lindex [split $updateTime :] 0] * * *" ${ns}::importFightsJob
+
+proc importFightsTrigger {unick host handle dest text} {
+    if {![onPollChan $unick]} { return 0 }
+    send $unick $dest "Importing fights. Please wait..."
+    if {[importFights]} {
+        send $unick $dest "Import completed successfully."
+    } else {
+        send $unick $dest "Import failed. See log for details."
+    }
     return 1
 }
-mbind {msg pub} $adminFlag {.importfights .importevents .updatefights} ${ns}::importFights
-
-proc parseBestFightOdds {tagtype state props body} {
-    variable imports
-
-    set tag "$state$tagtype"
-
-    if {$tag eq "hmstart"} {
-        set imports(event) ""
-        set imports(state) ""
-    } elseif {$tag eq "div"} {
-        if {$props == {class="table-header"}} {
-            set imports(state) "event"
-        }
-    } elseif {$tag eq "/hmstart"} {
-        set imports(state) ""
-        array unset imports event
-        return
-    }
-
-    switch $imports(state) {
-        event {
-            if {$tag eq "a" } {
-                set imports(event) "event,$body"
-                set imports($imports(event)) {}
-                set imports(state) "date"
-            }
-        }
-        date {
-            if {$tag eq "/a"} {
-                regsub -all {^[-\s]+|&nbsp;|(?:st|nd|rd|th)$} $body "" date
-                if {[set date [string trim $date]] eq ""} {
-                    set date [clock format [clock scan "6 months" -base [unixtime] -timezone [tz]] -format "%Y-%m-%d 00:00:00" -gmt 1]
-                } else {
-                    set tz ":America/New_York"
-                    if {[catch {clock scan 0 -timezone $tz}]} {
-                        set tz "-0500"  ;# default to EST
-                    }
-                    # if assuming current year puts the date more than 1 week before now, assume next year
-                    if {[expr [clock scan $date -base [unixtime] -timezone $tz] - [unixtime]] < -[expr 7 * 24 * 60 * 60]} {
-                        append date [clock format [clock scan "1 year" -base [unixtime] -timezone $tz] -format ", %Y" -gmt 1]
-                    }
-
-                    switch -glob -nocase -- [string range $imports(event) 6 end] {
-                        "UFC: The Ultimate Fighter*" {append date " 10:00pm"}
-                        "UFC*" {append date " 7:00pm"}
-                        Strikeforce* {append date " 10:00pm"}
-                        Bellator* {append date " 8:00pm"}
-                        DREAM* - K1* - "K-1*" - Sengoku* {append date " 3:00am"}
-                        default {append date " 6:00pm"}
-                    }
-                    catch {set date [clock format [clock scan $date -timezone $tz]\
-                        -format "%Y-%m-%d %H:%M:%S" -timezone [tz]]}
-                    if {[catch {set date [toGMT $date]}]} {
-                        set date [now]
-                    }
-                }
-                lappend imports($imports(event)) $date
-                set imports(state) "fightercell"
-            }
-        }
-        fightercell {
-            if {$tag eq "th" && $props == {scope="row"}} {
-                set imports(state) "fighter"
-            }
-        }
-        fighter {
-            if {$tag eq "a"} {
-                lappend imports($imports(event)) [htmlDecode $body]
-                set imports(state) "odds"
-            }
-        }
-        odds {
-            if {$tag eq "span" && [string match {*class="bestbet"*} $props]} {
-                set odds [expr {[string is integer $body] ? $body : 0}]
-                lappend imports($imports(event)) $odds
-                set imports(state) "fightercell"
-            }
-        }
-    }
-}
-
-proc updateEvents {minute hour day month year} {
-    importFights "" "" "" "" ""
-}
-bind time - "[lindex [split $updateTime :] 1] [lindex [split $updateTime :] 0] * * *" ${ns}::updateEvents
+mbind {msg pub} $adminFlag {.importfights .importevents .updatefights} ${ns}::importFightsTrigger
 
 proc setTimeZone {unick host handle dest timezone} {
     if {![onPollChan $unick]} { return 0 }
