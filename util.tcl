@@ -42,7 +42,7 @@ proc ::util::loadDatabase {db database {sqlScripts {}}} {
 	}
 
 	if {[catch {
-		if {$tcl_platform(platform) == "unix"} {
+		if {$tcl_platform(platform) eq "unix"} {
 			load "[pwd]/tclsqlite3.so" "tclsqlite3"
 		} else {
 			load "[pwd]/tclsqlite3.dll" "tclsqlite3"
@@ -287,7 +287,7 @@ proc ::util::putType {type unick dest text {queue putquick} {loglevel 0}} {
 				}
 			}
 		}
-		if {[string index $dest 0] != "#" && $queue == "putnow"} {
+		if {[string index $dest 0] ne "#" && $queue eq "putnow"} {
 			set queue putquick
 		}
 	}
@@ -321,11 +321,11 @@ proc ::util::mbind {types flags triggers handler} {
 
 	foreach type $types {
 		set eventHandler $handler
-		if {$type == "msg" || $type == "msgm"} {
+		if {$type eq "msg" || $type eq "msgm"} {
 			set eventHandler $msgHandler
 		}
 		foreach trigger $triggers {
-			if {$type == "msgm" && [llength $trigger] > 1} {
+			if {$type eq "msgm" && [llength $trigger] > 1} {
 				set trigger [lrange [split $trigger] 1 end]
 			}
 			bind $type $flags $trigger $eventHandler
@@ -336,7 +336,7 @@ proc ::util::mbind {types flags triggers handler} {
 }
 
 proc  ::util::c {color {bgcolor ""}} {
-	return "\003$color[expr {$bgcolor == "" ? "" : ",$bgcolor"}]"
+	return "\003$color[expr {$bgcolor eq "" ? "" : ",$bgcolor"}]"
 }
 proc ::util::/c {} { return "\003" }
 proc  ::util::b {} { return "\002" }
@@ -413,12 +413,12 @@ proc ::util::geturlex {url args} {
 		}
 		array set meta [set ${token}(meta)]
 		set location [lsearch -inline -nocase -exact [array names meta] "location"]
-		if {$location == ""} {
+		if {$location eq ""} {
 			return $token
 		}
 		array set uri [::uri::split $meta($location)]
 		unset meta
-		if {$uri(host) == ""} {
+		if {$uri(host) eq ""} {
 			set uri(host) $URI(host)
 		}
 		# problem w/ relative versus absolute paths
@@ -486,9 +486,9 @@ proc ::util::parseHTML {html {cmd testParser} {start hmstart}} {
 }
 
 proc ::util::testParser {tag state props body} {
-	if {$state == ""} {
+	if {$state eq ""} {
 		set msg "Start $tag"
-		if {$props != ""} {
+		if {$props ne ""} {
 			set msg "$msg with args: $props"
 		}
 		set msg "$msg\n$body"
