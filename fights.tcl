@@ -46,7 +46,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.21"
+variable scriptVersion "1.5.22"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -69,7 +69,7 @@ proc init {} {
 
     unset -nocomplain poll users
 
-    if {[info commands ${ns}::db] == ""} {
+    if {[info commands ${ns}::db] eq ""} {
         if {[catch {loadDatabase ${ns}::db $database [list $sqlScript]} error]} {
             return -code error $error
         }
@@ -97,7 +97,7 @@ proc onPollChan {unick} {
 proc send {unick dest text} {
     variable putCommand
     variable debugLogLevel
-    if {$dest != ""} {
+    if {$dest ne ""} {
         if {$unick == $dest} {
             set put putMessage
         } else {
@@ -123,7 +123,7 @@ proc msg {target text} {
 proc mmsg {messages {title ""}} {
     variable chanFlag
     variable botTitle
-    set title [expr {$title == "" ? $botTitle : "$botTitle :: $title"}]
+    set title [expr {$title eq "" ? $botTitle : "$botTitle :: $title"}]
     foreach chan [channels] {
         if {[channel get $chan $chanFlag]} {
             msg $chan $title
@@ -285,7 +285,7 @@ proc importFights {unick host handle dest text} {
             set eventId [db onecolumn {SELECT id FROM events WHERE name = :eventName}]
         }
         foreach {fighter1 odds1 fighter2 odds2} [lrange $imports($key) 1 end] {
-            if {$fighter1 != "" && $fighter2 != ""} {
+            if {$fighter1 ne "" && $fighter2 ne ""} {
                 incr totalFights
                 if {![db eval {
                     INSERT OR IGNORE INTO fights (event_id, fighter1, fighter2, fighter1_odds, fighter2_odds)
@@ -301,7 +301,7 @@ proc importFights {unick host handle dest text} {
         }
     }
 
-    if {$dest != ""} {
+    if {$dest ne ""} {
         listEvents $unick $host $handle $dest ".events"
     }
 
@@ -317,14 +317,14 @@ proc parseBestFightOdds {tagtype state props body} {
 
     set tag "$state$tagtype"
 
-    if {$tag == "hmstart"} {
+    if {$tag eq "hmstart"} {
         set imports(event) ""
         set imports(state) ""
-    } elseif {$tag == "div"} {
+    } elseif {$tag eq "div"} {
         if {$props == {class="table-header"}} {
             set imports(state) "event"
         }
-    } elseif {$tag == "/hmstart"} {
+    } elseif {$tag eq "/hmstart"} {
         set imports(state) ""
         array unset imports event
         return
@@ -332,16 +332,16 @@ proc parseBestFightOdds {tagtype state props body} {
 
     switch $imports(state) {
         event {
-            if {$tag == "a" } {
+            if {$tag eq "a" } {
                 set imports(event) "event,$body"
                 set imports($imports(event)) {}
                 set imports(state) "date"
             }
         }
         date {
-            if {$tag == "/a"} {
+            if {$tag eq "/a"} {
                 regsub -all {^[-\s]+|&nbsp;|(?:st|nd|rd|th)$} $body "" date
-                if {[set date [string trim $date]] == ""} {
+                if {[set date [string trim $date]] eq ""} {
                     set date [clock format [clock scan "6 months" -base [unixtime] -timezone [tz]] -format "%Y-%m-%d 00:00:00" -gmt 1]
                 } else {
                     set tz ":America/New_York"
@@ -372,18 +372,18 @@ proc parseBestFightOdds {tagtype state props body} {
             }
         }
         fightercell {
-            if {$tag == "th" && $props == {scope="row"}} {
+            if {$tag eq "th" && $props == {scope="row"}} {
                 set imports(state) "fighter"
             }
         }
         fighter {
-            if {$tag == "a"} {
+            if {$tag eq "a"} {
                 lappend imports($imports(event)) [htmlDecode $body]
                 set imports(state) "odds"
             }
         }
         odds {
-            if {$tag == "span" && [string match {*class="bestbet"*} $props]} {
+            if {$tag eq "span" && [string match {*class="bestbet"*} $props]} {
                 set odds [expr {[string is integer $body] ? $body : 0}]
                 lappend imports($imports(event)) $odds
                 set imports(state) "fightercell"
@@ -401,7 +401,7 @@ proc setTimeZone {unick host handle dest timezone} {
     if {![onPollChan $unick]} { return 0 }
 
     set tz [string trim $timezone]
-    if {$tz == ""} {
+    if {$tz eq ""} {
         send $unick $dest "Usage: .tz <timezone>"
     } else {
         foreach zone [list $tz ":$tz" [string toupper $tz] [string toupper ":$tz"]] {
@@ -448,7 +448,7 @@ proc listEvents {unick host handle dest text} {
     getLimits $text trigger offset limit expr
 
     # treat .events as .event if the search string is a valid event index
-    if {$trigger == ".events" && [selectEvent $unick $host "" $expr]} {
+    if {$trigger eq ".events" && [selectEvent $unick $host "" $expr]} {
         listFights $unick $host $handle $dest
         return [logStackable $unick $host $handle $dest $text]
     }
@@ -456,7 +456,7 @@ proc listEvents {unick host handle dest text} {
     clearEvents $unick $host
 
     set query {SELECT id, name, start_date FROM events}
-    if {$expr == ""} {
+    if {$expr eq ""} {
         lappend query WHERE locked = 0 AND start_date > (DATETIME(JULIANDAY() - 1)) ORDER BY start_date, name
     } else {
         lappend query WHERE name REGEXP :expr ORDER BY start_date, name
@@ -468,7 +468,7 @@ proc listEvents {unick host handle dest text} {
     set totalEvents [expr [llength $events] / 3]
     if {$totalEvents} {
         set tzNotice "\[ all times are [timezone 1] \]"
-        if {$expr == ""} {
+        if {$expr eq ""} {
             send $unick $dest "[b][u]UPCOMING EVENTS[/u][/b]  $tzNotice"
         } else {
             send $unick $dest "Found [b]$totalEvents[/b] event[s $totalEvents] matching '$expr':  $tzNotice"
@@ -479,7 +479,7 @@ proc listEvents {unick host handle dest text} {
             incr index
             setEvent $unick $host $index $eventId $eventName $eventDate
             set eventItem [format "[b]$numFormat[/b]. [b]%s[/b]" $index $eventName]
-            if {$eventName != "Future Events" && $eventDate != ""} {
+            if {$eventName ne "Future Events" && $eventDate ne ""} {
                 append eventItem " - [formatWordDateTime $eventDate 0] ([timeDiff $eventDate])"
             }
             send $unick $dest $eventItem
@@ -487,7 +487,7 @@ proc listEvents {unick host handle dest text} {
         if {$totalEvents == $limit} {
             send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit] $expr[/b]"
         }
-        if {$expr == ""} {
+        if {$expr eq ""} {
             send $unick $dest "To search for an event, type: [b].findevent <eventRE>[/b]"
         }
         send $unick $dest "To select an event, type: [b].event <index>[/b]"
@@ -496,7 +496,7 @@ proc listEvents {unick host handle dest text} {
     } else {
         send $unick $dest "No events found."
     }
-    if {$text == ""} {
+    if {$text eq ""} {
         return 1
     }
     return [logStackable $unick $host $handle $dest $text]
@@ -510,7 +510,7 @@ proc event {unick host handle dest index} {
         listFights $unick $host $handle $dest
     } else {
         listEvents $unick $host $handle $dest ".events"
-        if {$index != ""} {
+        if {$index ne ""} {
             send $unick $dest " "
             send $unick $dest "The upcoming events list was reloaded.\
                 Verify your selection above and try again."
@@ -529,7 +529,7 @@ proc addEvent {unick host handle dest text} {
     } else {
         set defaultDate 0
         regsub -all -nocase {\s*@\s*|\s+at\s+} $eventDate " " eventDate
-        if {$eventDate == "" || [catch {set eventDate [toGMT $eventDate]}]} {
+        if {$eventDate eq "" || [catch {set eventDate [toGMT $eventDate]}]} {
             set eventDate [now]
             set defaultDate 1
         }
@@ -573,7 +573,7 @@ proc delEvent {unick host handle dest text} {
     if {![regexp {^\s*(-f(?:orce)?\s+)?(\d+)\s*$} $text m force index]} {
         send $unick $dest {Usage: .delevent [-f] <index>}
     } elseif {[getEvent $unick $host $dest event $index]} {
-        if {$force == ""} {
+        if {$force eq ""} {
             send $unick $dest "Are you sure you want to delete [b]$event(name)[/b]?\
                 This will permanently remove all fights and votes associated with this event."
             send $unick $dest "To proceed, type: [b].delevent -f $index[/b]"
@@ -599,7 +599,7 @@ proc renameEvent {unick host handle dest text} {
 
     set index [lindex $text 0]
     set eventName [string trim [join [lrange $text 1 end]]]
-    if {![string is digit -strict $index] || $eventName == ""} {
+    if {![string is digit -strict $index] || $eventName eq ""} {
         send $unick $dest {Usage: .renameevent <index> <newEventName>}
     } elseif {[getEvent $unick $host $dest event $index]} {
         if {[catch {db eval {UPDATE events SET name = :eventName WHERE id = :event(id)}}]} {
@@ -621,7 +621,7 @@ proc mergeEvents {unick host handle dest text} {
         send $unick $dest {Usage: .mergeevents [-f] <oldEventIndex> <newEventIndex>}
     } elseif {[getEvent $unick $host $dest oldEvent $oldEventIndex]
                 && [getEvent $unick $host $dest newEvent $newEventIndex]} {
-        if {$force == ""} {
+        if {$force eq ""} {
             foreach line [list\
                     "Are you sure you want to merge these two events?  This will:"\
                     "1) Permanently delete the existing '[b]$newEvent(name)[/b]' event,"\
@@ -663,7 +663,7 @@ proc getNotes {unick host handle dest text} {
 
     set id [lindex [split [string trim $text]] 0]
     set event(id) $id
-    if {($id == "" && ![getEvent $unick $host "" event])
+    if {($id eq "" && ![getEvent $unick $host "" event])
             || ![string is digit -strict $event(id)]} {
         send $unick $dest "You must either specify an explicit event ID with\
             [b].notes <id>[/b] or first select an event with [b].event <index>[/b]."
@@ -671,12 +671,12 @@ proc getNotes {unick host handle dest text} {
         db eval {SELECT name, start_date AS date, notes FROM events WHERE id = :event(id)} r {}
         if {[array size r] > 1} {
             set title "[b]$r(name)[/b] ([formatShortDate $r(date)])"
-            if {$r(notes) == ""} {
+            if {$r(notes) eq ""} {
                 send $unick $dest "There are no notes set for $title."
             } else {
                 send $unick $dest "Notes for $title:"
                 send $unick $dest $r(notes)
-                if {$id == ""} {
+                if {$id eq ""} {
                     send $unick $dest "Direct access: [b].notes $event(id)[/b]"
                 }
             }
@@ -693,7 +693,7 @@ proc setNotes {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
 
     set text [string trim $text]
-    if {$text == ""} {
+    if {$text eq ""} {
         getNotes $unick $host $handle $dest $text
         send $unick $dest "Usage: .setnotes <text>"
     } elseif {[getEvent $unick $host $dest event]} {
@@ -743,7 +743,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
     if {[getEvent $unick $host $dest event]} {
         clearFights $unick $host
 
-        set user [expr {$text == "" ? $unick : [string trim $text]}]
+        set user [expr {$text eq "" ? $unick : [string trim $text]}]
         set you [string equal -nocase $user $unick]
         set rows [db eval {
             SELECT fights.id, fighter1, fighter2, fighter1_odds, fighter2_odds,
@@ -763,7 +763,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                 incr index
                 setFight $unick $host $event(index) $index $fightId $fighter1 $fighter2
                 set resultId -1
-                if {$result != ""} {
+                if {$result ne ""} {
                     set resultId 0
                     if {[string equal -nocase $fighter1 $result]} {
                         set resultId 1
@@ -772,7 +772,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                     }
                 }
                 set mark ""
-                if {$vote != ""} {
+                if {$vote ne ""} {
                     set mark [expr {$vote ? "*" : "~"}]
                 }
                 if {[string equal -nocase $pick $fighter1]} {
@@ -791,10 +791,10 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                     2 {set result1 " (L)"; set result2 " (W)"}
                 }
 
-                if {$odds1 != ""} {
+                if {$odds1 ne ""} {
                     set odds1 [format " <[expr {$odds1 == 0 ? "EV" : "%+d"}]>" $odds1]
                 }
-                if {$odds2 != ""} {
+                if {$odds2 ne ""} {
                     set odds2 [format " <[expr {$odds2 == 0 ? "EV" : "%+d"}]>" $odds2]
                 }
 
@@ -805,9 +805,9 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                     if {$resultId == -1} {
                         set message "PENDING RESULTS"
                     }
-                    if {$notes != "" && $message != ""} {
+                    if {$notes ne "" && $message ne ""} {
                         append resultLine " :: \[ $notes | $message \]"
-                    } elseif {"$notes$message" != ""} {
+                    } elseif {"$notes$message" ne ""} {
                         append resultLine " :: \[ $notes$message \]"
                     }
                 }
@@ -828,7 +828,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
             }
 
             send $unick $dest "[b]$event(name)[/b] has the following [b]$totalFights[/b] fight[s $totalFights] (A vs. B):"
-            if {$picks != ""} {
+            if {$picks ne ""} {
                 send $unick $dest $picks
             }
             foreach line $lines {
@@ -846,7 +846,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
             send $unick $dest $message
         }
         set notes [db onecolumn {SELECT notes FROM events WHERE id = :event(id)}]
-        if {$notes != ""} {
+        if {$notes ne ""} {
             send $unick $dest "[b]*[/b] $notes"
         }
     }
@@ -865,10 +865,10 @@ proc addFight {unick host handle dest fight} {
         } else {
             regsub -all {\s{2,}} $fighter1 " " fighter1
             regsub -all {\s{2,}} $fighter2 " " fighter2
-            if {[string toupper [string index $odds1 0]] == "E"} {
+            if {[string toupper [string index $odds1 0]] eq "E"} {
                 set odds1 0
             }
-            if {[string toupper [string index $odds2 0]] == "E"} {
+            if {[string toupper [string index $odds2 0]] eq "E"} {
                 set odds2 0
             }
             if {[db eval {
@@ -900,7 +900,7 @@ proc delFight {unick host handle dest text} {
     } elseif {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $index]} {
         set fighter1 $fight(fighter1)
         set fighter2 $fight(fighter2)
-        if {$force == ""} {
+        if {$force eq ""} {
             send $unick $dest "Are you sure you want to delete [b]$fighter1 vs. $fighter2[/b]?\
                 This will permanently remove any votes cast for this fight."
             send $unick $dest "To proceed, type: [b].delfight -f $index[/b]"
@@ -931,7 +931,7 @@ proc renameFighter {unick host handle dest text} {
     } elseif {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $index]} {
         regsub -all {\s{2,}} $fighterName " " fighterName
         set sql {UPDATE fights SET}
-        set who "fighter[expr {$which == "a" || $which == "A" ? 1 : 2}]"
+        set who "fighter[expr {$which eq "a" || $which eq "A" ? 1 : 2}]"
         set oldFighterName $fight($who)
         lappend sql $who = :fighterName WHERE id = :fight(id)
         if {[catch {db eval $sql}]} {
@@ -973,7 +973,7 @@ mbind {msg pub} $adminFlag {.unlock .unlockfight} [list ${ns}::lockFight 0]
 proc findFights {unick host handle dest query} {
     if {![onPollChan $unick]} { return 0 }
 
-    if {[set query [string trim $query]] == "" ||
+    if {[set query [string trim $query]] eq "" ||
             ![regexp -nocase {^(?:([^@]+?)\s*(?:(?:\svs?\.?\s|;)\s*([^@]+?)\s*)?)?(?:@\s*(.+?)\s*)?$}\
                 $query m fighter1 fighter2 event]
     } {
@@ -994,12 +994,12 @@ proc findFights {unick host handle dest query} {
                 set fight "[b]$fighter1[/b] defeated $fighter2"
             } elseif {[string equal -nocase $result $fighter2]} {
                 set fight "[b]$fighter2[/b] defeated $fighter1"
-            } elseif {$result != ""} {
+            } elseif {$result ne ""} {
                 set fight "$fighter1 vs. $fighter2 was a [string range $result 1 end]"
             } else {
                 set fight "$fighter1 vs. $fighter2"
             }
-            if {$notes != ""} {
+            if {$notes ne ""} {
                 append fight " :: \[ $notes \]"
             }
             if {[lsearch -exact $events $eventName] == -1} {
@@ -1046,7 +1046,7 @@ proc vote {fighterId type unick host handle dest text} {
     if {[channel get $dest $chanFlag] && [info exists poll(current)]} {
         set key $poll(current)
         set fightId $poll($key,fightId)
-        set voted [expr {$type == ""}]
+        set voted [expr {$type eq ""}]
         set user [string toupper $unick]
         set pick [list $fighterId $voted $unick $host]
         set fighter [expr {$fighterId == 1 ? $poll($key,fighter1) : $poll($key,fighter2)}]
@@ -1113,10 +1113,10 @@ proc endPoll {} {
                            SUM(CASE WHEN pick = :fighter2 THEN 1 ELSE 0 END) AS fighter2Votes
                            FROM picks WHERE fight_id = :fightId
                 } {
-                    if {$fighter1Votes == ""} {
+                    if {$fighter1Votes eq ""} {
                         set fighter1Votes 0
                     }
-                    if {$fighter2Votes == ""} {
+                    if {$fighter2Votes eq ""} {
                         set fighter2Votes 0
                     }
                     set totalVotes [expr $fighter1Votes + $fighter2Votes]
@@ -1329,7 +1329,7 @@ proc announceResult {unick host handle dest result} {
             } else {
                 set resultText "[b]$winner[/b] has defeated $loser!"
             }
-            if {$notes != ""} {
+            if {$notes ne ""} {
                 append resultText " \[ $notes \]"
             }
             if {$totalVotes} {
@@ -1405,7 +1405,7 @@ mbind {msg pub} $adminFlag {
 proc announceOther {result unick host handle dest notes} {
     if {![onPollChan $unick]} { return 0 }
 
-    if {$notes != ""} {
+    if {$notes ne ""} {
         append result "; $notes"
     }
     return [announceResult $unick $host $handle $dest "$result"]
@@ -1435,7 +1435,7 @@ proc pick {unick host handle dest text} {
         regsub -all {[\s,;:|]+} [string tolower $text] "" picks
         if {[regexp {^(?:\d+[ab]~?)+$} $picks]} {
             set userId [db onecolumn {SELECT id FROM users WHERE nick = :unick}]
-            if {$userId == ""} {
+            if {$userId eq ""} {
                 if {[db eval {INSERT OR IGNORE INTO users (nick, host) VALUES(:unick, :host)}]} {
                     set userId [db last_insert_rowid]
                 } else {
@@ -1451,11 +1451,11 @@ proc pick {unick host handle dest text} {
                     if {[db onecolumn {SELECT locked FROM fights WHERE id = :fight(id)}] == 0} {
                         set winner $fight(fighter1)
                         set loser $fight(fighter2)
-                        if {[string index $which 0] == "b"} {
+                        if {[string index $which 0] eq "b"} {
                             set winner $fight(fighter2)
                             set loser $fight(fighter1)
                         }
-                        set vote [expr {[string index $which 1] != "~"}]
+                        set vote [expr {[string index $which 1] ne "~"}]
                         if {[db eval {
                             INSERT OR REPLACE INTO picks (user_id, fight_id, pick, vote, pick_date)
                                 VALUES(:userId, :fight(id), :winner, :vote, DATETIME())}]
@@ -1521,7 +1521,7 @@ proc findPicks {unick host handle dest text} {
         set pair [split $text]
         set user [lindex $pair 0]
         set query [string trim [join [lrange $pair 1 end]]]
-        if {$user == "" ||
+        if {$user eq "" ||
                 ![regexp -nocase {^(?:([^@]+?)\s*(?:(?:\svs?\.?\s|;)\s*([^@]+?)\s*)?)?(?:@\s*(.+?)\s*)?$}\
                 $query m fighter1 fighter2 eventRE]} {
             send $unick $dest {Usage: .picks <user> [fighter1RE [vs fighter2RE]][@ eventRE]}
@@ -1536,7 +1536,7 @@ proc findPicks {unick host handle dest text} {
     }
 
     set recent ""
-    if {$fighter1 == "" && $fighter2 == "" && $eventRE == ""} {
+    if {$fighter1 eq "" && $fighter2 eq "" && $eventRE eq ""} {
         set recent " recent"
         lappend sql AND event_start_date > (DATETIME(JULIANDAY() - 1))\
             ORDER BY event_start_date DESC, event_name
@@ -1585,7 +1585,7 @@ proc findPicks {unick host handle dest text} {
         send $unick $dest "End of$recent picks."
     } else {
         set who [expr {[string equal -nocase $user $unick] ? "You have" : "[b]$user[/b] has"}]
-        if {$query == ""} {
+        if {$query eq ""} {
             send $unick $dest "$who no$recent picks."
         } else {
             send $unick $dest "$who no$recent picks matching those search criteria: $query"
@@ -1606,12 +1606,12 @@ proc whoPicked {unick host handle dest query} {
         }
     } elseif {[regexp {^!\d+$} $query]} {
         if {[info exists poll(current)]} {
-            set fighter [expr {$query == "!1" ? "fighter1" : "fighter2"}]
+            set fighter [expr {$query eq "!1" ? "fighter1" : "fighter2"}]
             whoPicked $unick $host $handle $dest $poll($poll(current),$fighter)
         } else {
             set showUsage 1
         }
-    } elseif { [info exists poll(current)] && $query==""} {
+    } elseif { [info exists poll(current)] && $query eq ""} {
         whoPicked $unick $host $handle $dest "$poll($poll(current),fighter1) vs $poll($poll(current),fighter2)"
     } elseif {![regexp -nocase {^\s*([^@%_]+?)\s*(?:\s(vs?\.?|over)\s+([^@%_]+?)\s*)?(?:@\s*(.+?)\s*)?\s*$}\
                 $query m fighter1 searchType fighter2 eventRE]
@@ -1620,7 +1620,7 @@ proc whoPicked {unick host handle dest query} {
     } else {
         set havePicked 0
         set fighter1Glob "$fighter1%"
-        set fighter2Glob [expr {$fighter2 == "" ? "" : "$fighter2%"}]
+        set fighter2Glob [expr {$fighter2 eq "" ? "" : "$fighter2%"}]
         set sql {
             SELECT GROUP_CONCAT(nick) AS nicks, pick,
                 (CASE WHEN pick = fighter1 THEN fighter2 ELSE fighter1 END) AS opponent,
@@ -1630,7 +1630,7 @@ proc whoPicked {unick host handle dest query} {
                 OR (fighter2 LIKE :fighter1Glob AND fighter1 REGEXP :fighter2)
                 OR (fighter2 LIKE :fighter2Glob AND fighter1 REGEXP :fighter1))
         }
-        if {[string equal -nocase $searchType "over"] || $searchType == ""} {
+        if {[string equal -nocase $searchType "over"] || $searchType eq ""} {
             lappend sql AND pick REGEXP :fighter1
         }
         lappend sql AND event_name REGEXP :eventRE GROUP BY fight_id, pick
@@ -1657,7 +1657,7 @@ proc whoPicked {unick host handle dest query} {
                         set fighter2 $poll($poll(current),fighter1)
                     }
                     regsub "$nick " $picks($eventDate\n$eventName\n$fighter2\n$fighter1) "" picks($eventDate\n$eventName\n$fighter2\n$fighter1)
-                    if {[string first  "$nick " $picks($eventDate\n$eventName\n$fighter1\n$fighter2)]==-1} {
+                    if {[string first  "$nick " $picks($eventDate\n$eventName\n$fighter1\n$fighter2)] == -1} {
                         append picks($eventDate\n$eventName\n$fighter1\n$fighter2) "$nick "
                     }
                 }
@@ -1699,13 +1699,13 @@ proc mergeUsers {unick host handle dest text} {
     } else {
         set target [lindex $nicks 0]
         set targetUser [db eval {SELECT id, nick FROM users WHERE nick = :target}]
-        if {$targetUser == ""} {
+        if {$targetUser eq ""} {
             send $unick $dest "Target user '[b]$target[/b]' does not exist."
         } else {
             set dupes [lrange $nicks 1 end]
             set totalDupes [llength $dupes]
 
-            if {$force == ""} {
+            if {$force eq ""} {
                 set targetNick [lindex $targetUser 1]
                 send $unick $dest "This action will merge the stats and picks from\
                     [expr $totalDupes + 1] users and permanently [u]remove[/u]\
@@ -1766,7 +1766,7 @@ proc updateRankings {} {
 proc stats {unick host handle dest user args} {
     if {![onPollChan $unick]} { return 0 }
 
-    if {[set user [string trim $user]] == ""} {
+    if {[set user [string trim $user]] eq ""} {
         set user $unick
     }
     updateRankings
@@ -1785,8 +1785,8 @@ proc stats {unick host handle dest user args} {
             append msg [format " (%+d personal best)" $bestStreak]
         }
     }
-    if {$msg != ""} {
-        if {$args == {}} {
+    if {$msg ne ""} {
+        if {$args eq {}} {
             set msg "[b]Poll Stats:[/b] $msg"
         }
     } elseif {[string equal -nocase $user $unick]} {
@@ -1967,7 +1967,7 @@ proc searchSherdog {unick host handle dest text} {
     regexp {^\S+?(\d*|\*),?([*\d,]+)?$} $cmd m limit columns
 
     set columns [split $columns ,]
-    if {[llength $columns] == 0 && [string index $cmd end] != ","} {
+    if {[llength $columns] == 0 && [string index $cmd end] ne ","} {
         set columns $defaultColSizes
     }
 
@@ -2000,7 +2000,7 @@ proc searchSherdog {unick host handle dest text} {
             set fightIndex [lindex $match 1]
             if {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $fightIndex]} {
                 set fighterId [string tolower [lindex $match 2]]
-                lappend queries $fight(fighter[expr {$fighterId == "a" ? 1 : 2}])
+                lappend queries $fight(fighter[expr {$fighterId eq "a" ? 1 : 2}])
             }
         }
         default {
@@ -2033,7 +2033,7 @@ proc best {unick host handle dest text} {
 
     getLimits $text trigger offset limit expr
     set evid ""
-    if {$expr==""} {
+    if {$expr eq ""} {
         if {[getEvent $unick $host $dest event]} {
             set evid $event(id)
         } else {
@@ -2101,7 +2101,7 @@ proc best {unick host handle dest text} {
                 send $unick $dest [format "# %-4d %-12s %-6d %-6d" $rank $nick $wins $losses]
             }
         }
-        if {$counter==[expr $limit + $offset]} {
+        if {$counter == [expr $limit + $offset]} {
             set reachedLimit 1
             break
         }
@@ -2174,7 +2174,7 @@ proc help {unick host handle dest text} {
         - "NOTES: \"RE\" suffix indicates a regular expression. All times are [timezone]."] {
         - { }
     }] {
-        if {$access == "-" || [matchchanattr $handle $adminFlag $dest]} {
+        if {$access eq "-" || [matchchanattr $handle $adminFlag $dest]} {
             send $unick $dest $line
         }
     }

@@ -29,7 +29,7 @@ namespace eval sherdog {
     variable cache
 }
 
-if {[info commands putlog] == ""} {
+if {[info commands putlog] eq ""} {
     proc putlog {s} { puts "\[*\] $s" }
 }
 
@@ -53,13 +53,13 @@ proc sherdog::parse {html {url ""}} {
     ]
 
     dict with fighter {
-        if {$birthDate != "" && ![catch {set dt [clock scan $birthDate]}]} {
+        if {$birthDate ne "" && ![catch {set dt [clock scan $birthDate]}]} {
             set age [expr ([clock seconds] - $dt) / (60 * 60 * 24 * 365)]
         }
     }
 
     set upcoming [$doc selectNodes {//*[contains(@class, 'event-upcoming')]}]
-    if {$upcoming != ""} {
+    if {$upcoming ne ""} {
         dict set fighter fights upcoming [list\
             event [select $upcoming {.//h2}]\
             date [select $upcoming {.//h4/node()} date "%B %d, %Y"]\
@@ -132,12 +132,12 @@ proc sherdog::query {query response err {mode -verbose} args} {
     set e ""
 
     set url [cache link $query]
-    if {$url == ""} {
+    if {$url eq ""} {
         putlog "Searching for sherdog link matching '$query'"
         set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
         set url [getFirstSearchResult $searchResults $SEARCH_LINK]
         regsub {\#.*} $url "" url
-        if {$url == ""} {
+        if {$url eq ""} {
             set e "No match for '$query' in the Sherdog Fight Finder."
             return false
         }
@@ -145,7 +145,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     }
 
     set data [cache data $url]
-    if {$data == ""} {
+    if {$data eq ""} {
         putlog "Fetching sherdog content at $url"
         set html [fetch $url]
         if {[catch {set data [parse $html $url]}]} {
@@ -171,7 +171,7 @@ proc sherdog::print {fighter {maxColSizes {*}}} {
     set output {}
 
     dict with fighter {
-        add output "[b][u]%s[/u][/b]" [expr {$nickname == "" ? $name : "$name \"$nickname\""}]
+        add output "[b][u]%s[/u][/b]" [expr {$nickname eq "" ? $name : "$name \"$nickname\""}]
         add output "  [b]AGE[/b]: %s (%s)" $age $birthDate
         add output "  [b]HEIGHT[/b]: %s" $height
         add output "  [b]WEIGHT[/b]: %s (%s)" $weight $weightClass
@@ -212,7 +212,7 @@ proc sherdog::print {fighter {maxColSizes {*}}} {
         }
     }
 
-    if {$url != ""} {
+    if {$url ne ""} {
         addn output "Source: [b]%s[/b]" [dict get $fighter url]
     }
 
@@ -233,9 +233,9 @@ proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponen
 
     dict with fighter {
         add output "[b]%s[/b]%s%s %s%s %s" $name\
-            [expr {$nickname == "" ? "" : " \"$nickname\""}]\
+            [expr {$nickname eq "" ? "" : " \"$nickname\""}]\
             [countryCode $nationality { [%s]}] $record\
-            [expr {$age == "" ? "" : " ${age}yo"}] $url
+            [expr {$age eq "" ? "" : " ${age}yo"}] $url
     }
 
     if {$hasProFights && $limit > 0} {
@@ -293,10 +293,10 @@ proc sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
 proc sherdog::countryCode {nationality {fmt "%s"}} {
     variable countries
     set c [string tolower [string trim $nationality]]
-    if {$c != ""} {
+    if {$c ne ""} {
         foreach expr [list $c "${c}*" "*${c}" "*${c}*"] {
             set code [lindex [array get countries $expr] 1]
-            if {$code != ""} {
+            if {$code ne ""} {
                 return [format $fmt $code]
             }
         }
@@ -309,12 +309,12 @@ proc sherdog::relativeTime {date {useShortFormat ""}} {
     set days [expr ([clock scan $date] - [clock scan 0]) / 60 / 60 / 24]
     if {$days >= 60} {
         set tm [expr $days / 30]
-        return [expr {$useShortFormat == "" ? [plural $tm month] : "${tm}m"}]
+        return [expr {$useShortFormat eq "" ? [plural $tm month] : "${tm}m"}]
     } elseif {$days >= 14} {
         set tm [expr $days / 7]
-        return [expr {$useShortFormat == "" ? [plural $tm week] : "${tm}w"}]
+        return [expr {$useShortFormat eq "" ? [plural $tm week] : "${tm}w"}]
     }
-    return [expr {$useShortFormat == "" ? [plural $days day] : "${days}d"}]
+    return [expr {$useShortFormat eq "" ? [plural $days day] : "${days}d"}]
 }
 
 proc sherdog::formatResult {result {c "\u25cf"}} {
@@ -355,7 +355,7 @@ proc sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct fal
 
 proc sherdog::add {listVar format args} {
     upvar $listVar l
-    if {[llength $args] && [join $args ""] == ""} {
+    if {[llength $args] && [join $args ""] eq ""} {
         return $l
     }
     return [lappend l [format $format {*}$args]]
@@ -561,7 +561,7 @@ proc sherdog::plural {num unit {suffix "s"}} {
 }
 
 proc sherdog::c {color {bgcolor ""}} {
-    return "\003$color[expr {$bgcolor == "" ? "" : ",$bgcolor"}]"
+    return "\003$color[expr {$bgcolor eq "" ? "" : ",$bgcolor"}]"
 }
 proc sherdog::/c {} { return "\003" }
 proc sherdog::b  {} { return "\002" }
