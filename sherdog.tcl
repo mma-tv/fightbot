@@ -207,8 +207,8 @@ proc sherdog::print {fighter {maxColSizes {*}}} {
 
     if {[dict exists $fighter fights upcoming]} {
         dict with fighter fights upcoming {
-            addn output "[b]NEXT OPPONENT[/b] (%s away): [b]%s[/b] (%s) | %s | %s | %s"\
-                [relativeTime $date {-s}] $opponent $opponentRecord $date $event $location
+            addn output "[b]NEXT OPPONENT[/b] %s: [b]%s[/b] (%s) | %s | %s | %s"\
+                [relativeTime $date] $opponent $opponentRecord $date $event $location
         }
     }
 
@@ -257,7 +257,7 @@ proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponen
 
     if {$showNextOpponent && [dict exists $fighter fights upcoming]} {
         dict with fighter fights upcoming {
-            add output "Next opponent in %s: [b]%s[/b] (%s) on %s at %s"\
+            add output "Next opponent %s: [b]%s[/b] (%s) on %s at %s"\
                 [relativeTime $date] $opponent $opponentRecord\
                 [collapse [clock format [clock scan $date] -format "%b %e"]] $event
         }
@@ -305,16 +305,26 @@ proc sherdog::countryCode {nationality {fmt "%s"}} {
     return ""
 }
 
-proc sherdog::relativeTime {date {useShortFormat ""}} {
+proc sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
     set days [expr ([clock scan $date] - [clock scan 0]) / 60 / 60 / 24]
-    if {$days >= 60} {
-        set tm [expr $days / 30]
-        return [expr {$useShortFormat eq "" ? [plural $tm month] : "${tm}m"}]
+    set time $days
+    set unit "day"
+    if {$days == 0} {
+        return "TODAY"
+    } elseif {$days >= 60} {
+        set time [expr $days / 30]
+        set unit "month"
     } elseif {$days >= 14} {
-        set tm [expr $days / 7]
-        return [expr {$useShortFormat eq "" ? [plural $tm week] : "${tm}w"}]
+        set time [expr $days / 7]
+        set unit "week"
     }
-    return [expr {$useShortFormat eq "" ? [plural $days day] : "${days}d"}]
+    if {$useShortFormat == true} {
+        return "$prefix$time[string index $unit 0]"
+    }
+    if {$time > 0} {
+        return "$prefix$time $unit[expr {$time == 1 ? "" : "s"}]"
+    }
+    return ""
 }
 
 proc sherdog::formatResult {result {c "\u25cf"}} {
@@ -554,10 +564,6 @@ proc closeDanglingCtrlCodes {str} {
 proc sherdog::collapse {str} {
     regsub -all {\s{2,}} [string trim $str] " " collapsed
     return $collapsed
-}
-
-proc sherdog::plural {num unit {suffix "s"}} {
-    return [expr {$num == 1 ? "$num $unit" : "$num ${unit}$suffix"}]
 }
 
 proc sherdog::c {color {bgcolor ""}} {
