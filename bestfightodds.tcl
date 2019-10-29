@@ -1,3 +1,15 @@
+#! /usr/bin/env tclsh
+
+####################################################################
+#
+# Module: bestfightodds.tcl
+# Author: makk@EFnet
+# Description: bestfightodds.com event scraper
+# Release Date: Oct 28, 2019
+#  Last Update: Oct 29, 2019
+#
+####################################################################
+
 package require tls
 package require http
 package require tdom
