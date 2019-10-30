@@ -6,11 +6,10 @@
 #   MMA/Boxing fight logger and polling script for Eggdrop bots.
 #
 # Author: makk@EFnet
-#
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 29, 2019
+#  Last Update: Oct 30, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -21,10 +20,13 @@
 package require util
 package require sherdog
 package require bestfightodds
+package require util::date
+package require util::tabulate
 
 namespace eval ::fights {
 
 namespace import ::util::*
+namespace import ::util::tabulate
 namespace import ::util::ctrlcodes::*
 
 variable botTitle      "[b][u]FIGHT POLL[/u][/b]"
@@ -44,7 +46,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.23"
+variable scriptVersion "1.5.24"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1064,7 +1066,7 @@ proc runAnnouncement {seconds} {
                 set data [sherdog::cache data [sherdog::cache link $fighter]]
                 set record($fighter) [sherdog::graphicalRecord $data 10]
             }
-            set fighters [sherdog::tabulate [list\
+            set fighters [tabulate [list\
                 "$fighter1 | $record($fighter1)"\
                 "$fighter2 | $record($fighter2)"\
             ]]
