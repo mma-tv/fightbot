@@ -1,5 +1,5 @@
 namespace eval ::util::ctrlcodes {
-    namespace export -clear c /c b /b r /r u /u closeDanglingCtrlCodes
+    namespace export c /c b /b r /r u /u closeDanglingCtrlCodes
 
     proc c {color {bgcolor ""}} {
         return "\003$color[expr {$bgcolor eq "" ? "" : ",$bgcolor"}]"
