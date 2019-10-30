@@ -10,16 +10,14 @@
 #
 ####################################################################
 
-package require tls
-package require http
+::tcl::tm::path add [file dirname [info script]]
+
 package require tdom
+package require util::fetch
 
-package provide bestfightodds 1.0
-
-namespace eval bestfightodds {
-    namespace export -clear import
+namespace eval ::bestfightodds {
+    namespace export import
     variable URL "https://www.bestfightodds.com"
-    variable HTTP_TIMEOUT 5000
 }
 
 proc bestfightodds::parse {html} {
@@ -70,53 +68,10 @@ proc bestfightodds::import {data error} {
     variable URL
     upvar $data d
     upvar $error e
-    if {[catch {set d [parse [fetch $URL]]} err]} {
+    if {[catch {set d [parse [util::fetch $URL]]} err]} {
         set e $err
         return false
     }
     set e ""
     return true
-}
-
-proc bestfightodds::fetch {url args} {
-    variable HTTP_TIMEOUT
-    set response ""
-    set token ""
-    set MAX_REDIRECTS 5
-
-    http::register https 443 tls::socket
-
-    array set URI [uri::split $url]
-    for {set i 0} {$i < $MAX_REDIRECTS} {incr i} {
-        if {[llength $args]} {
-            set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
-        } else {
-            set token [http::geturl $url -timeout $HTTP_TIMEOUT]
-        }
-        if {![string match {30[1237]} [http::ncode $token]]} {
-            break
-        }
-        set location [lmap {k v} [set ${token}(meta)] {
-            if {[string match -nocase location $k]} {set v} continue
-        }]
-        if {$location eq {}} {
-            break
-        }
-        array set uri [uri::split $location]
-        if {$uri(host) eq {}} {
-            set uri(host) $URI(host)
-        }
-        # problem w/ relative versus absolute paths
-        set url [uri::join {*}[array get uri]]
-        http::cleanup $token
-        set token ""
-    }
-
-    if {$token ne ""} {
-        set response [http::data $token]
-        http::cleanup $token
-    }
-
-    http::unregister https
-    return $response
 }

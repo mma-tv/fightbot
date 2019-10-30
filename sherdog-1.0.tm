@@ -10,19 +10,19 @@
 #
 ####################################################################
 
-package require tls
-package require http
+::tcl::tm::path add [file dirname [info script]]
+
 package require tdom
+package require util::fetch
+package require util::ctrlcodes
 
-package provide sherdog 1.0
-
-namespace eval sherdog {
-    namespace export -clear query parse print printSummary
+namespace eval ::sherdog {
+    namespace export query parse print printSummary
+    namespace import ::util::ctrlcodes::*
 
     variable SEARCH_BASE  "https://www.bing.com/search"
     variable SEARCH_QUERY "site:sherdog.com/fighter %s"
     variable SEARCH_LINK  "sherdog.com/fighter/"
-    variable HTTP_TIMEOUT 5000
     variable USE_CACHE    true
     variable CACHE_EXPIRATION 90 ;# minutes
 
@@ -134,7 +134,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     set url [cache link $query]
     if {$url eq ""} {
         putlog "Searching for sherdog link matching '$query'"
-        set searchResults [fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
+        set searchResults [util::fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
         set url [getFirstSearchResult $searchResults $SEARCH_LINK]
         regsub {\#.*} $url "" url
         if {$url eq ""} {
@@ -147,7 +147,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     set data [cache data $url]
     if {$data eq ""} {
         putlog "Fetching sherdog content at $url"
-        set html [fetch $url]
+        set html [util::fetch $url]
         if {[catch {set data [parse $html $url]}]} {
             set e "Failed to parse Sherdog content at $url for '$query' query. Notify the bot developer."
             return false
@@ -436,49 +436,6 @@ proc sherdog::tabulate {data {maxColSizes {}} {sep " | "}} {
     return $tabulated
 }
 
-proc sherdog::fetch {url args} {
-    variable HTTP_TIMEOUT
-    set response ""
-    set token ""
-    set MAX_REDIRECTS 5
-
-    http::register https 443 tls::socket
-
-    array set URI [uri::split $url]
-    for {set i 0} {$i < $MAX_REDIRECTS} {incr i} {
-        if {[llength $args]} {
-            set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
-        } else {
-            set token [http::geturl $url -timeout $HTTP_TIMEOUT]
-        }
-        if {![string match {30[1237]} [http::ncode $token]]} {
-            break
-        }
-        set location [lmap {k v} [set ${token}(meta)] {
-            if {[string match -nocase location $k]} {set v} continue
-        }]
-        if {$location eq {}} {
-            break
-        }
-        array set uri [uri::split $location]
-        if {$uri(host) eq {}} {
-            set uri(host) $URI(host)
-        }
-        # problem w/ relative versus absolute paths
-        set url [uri::join {*}[array get uri]]
-        http::cleanup $token
-        set token ""
-    }
-
-    if {$token ne ""} {
-        set response [http::data $token]
-        http::cleanup $token
-    }
-
-    http::unregister https
-    return $response
-}
-
 proc sherdog::getFirstSearchResult {html {substr "http"}} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
@@ -548,35 +505,10 @@ proc sherdog::splitString {str substr} {
     return [split [string map [list $substr \uffff] $str] \uffff]
 }
 
-proc closeDanglingCtrlCodes {str} {
-    set s $str
-    set matches {}
-    foreach c {\002 \003 \026 \037} {
-        if {[expr [regexp -all -indices $c $str i] & 1]} {
-            lappend matches [lindex $i 0]
-        }
-    }
-    foreach c [lsort -decreasing $matches] {
-        append s [string index $str $c]
-    }
-    return $s
-}
-
 proc sherdog::collapse {str} {
     regsub -all {\s{2,}} [string trim $str] " " collapsed
     return $collapsed
 }
-
-proc sherdog::c {color {bgcolor ""}} {
-    return "\003$color[expr {$bgcolor eq "" ? "" : ",$bgcolor"}]"
-}
-proc sherdog::/c {} { return "\003" }
-proc sherdog::b  {} { return "\002" }
-proc sherdog::/b {} { return "\002" }
-proc sherdog::r  {} { return "\026" }
-proc sherdog::/r {} { return "\026" }
-proc sherdog::u  {} { return "\037" }
-proc sherdog::/u {} { return "\037" }
 
 array set sherdog::countries {
     {afghanistan} AFG
@@ -834,14 +766,4 @@ array set sherdog::countries {
     {yemen} YEM
     {zambia} ZMB
     {zimbabwe} ZWE
-}
-
-proc sherdog::test {filename args} {
-    set fp [open $filename r]
-    set data [read $fp]
-    close $fp
-
-    foreach line [print [parse $data] {*}$args] {
-        puts $line
-    }
 }

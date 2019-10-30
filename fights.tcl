@@ -16,19 +16,16 @@
 #
 ####################################################################
 
-foreach script {util sherdog bestfightodds} {
-    source "[file dirname [info script]]/$script.tcl"
-}
+::tcl::tm::path add [file dirname [info script]]
+
 package require util
 package require sherdog
 package require bestfightodds
-package require http
-package require tdom
-package require tls
 
 namespace eval ::fights {
 
 namespace import ::util::*
+namespace import ::util::ctrlcodes::*
 
 variable botTitle      "[b][u]FIGHT POLL[/u][/b]"
 

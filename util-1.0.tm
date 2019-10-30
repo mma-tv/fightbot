@@ -7,22 +7,17 @@
 # Author: makk@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Jul 28, 2011
+#  Last Update: Oct 30, 2019
 #
 ####################################################################
 
-package require uri
-package provide util 1.0
-
-namespace eval ::util:: {
-    namespace export -clear loadDatabase s populate tz timeDiff toGMT toLocal\
+namespace eval ::util {
+    namespace export loadDatabase s populate tz timeDiff toGMT toLocal\
         now currentYear timezone formatShortDate formatDateTime formatWordDate\
         formatWordDateTime put putMessage putNotice putAction mbind logStackable\
-        c /c b /b r /r u /u bindSQL scheduleBackup registerCleanup
+        bindSQL scheduleBackup registerCleanup
 
     variable ns [namespace current]
-    variable HTTP_TIMEOUT 5000
-    variable HTTP_MAX_REDIRECTS 5
     variable maxMessageLen 510
     variable maxLineWrap   5  ;# max lines to wrap when text is too long
     variable floodExempt   1  ;# set to 1 if the bot is exempt from flood limits
@@ -336,24 +331,13 @@ proc ::util::mbind {types flags triggers handler} {
     return $totalBinds
 }
 
-proc  ::util::c {color {bgcolor ""}} {
-    return "\003$color[expr {$bgcolor eq "" ? "" : ",$bgcolor"}]"
-}
-proc ::util::/c {} { return "\003" }
-proc  ::util::b {} { return "\002" }
-proc ::util::/b {} { return "\002" }
-proc  ::util::r {} { return "\026" }
-proc ::util::/r {} { return "\026" }
-proc  ::util::u {} { return "\037" }
-proc ::util::/u {} { return "\037" }
-
 # for database maintenance - use with caution!
 proc ::util::sql {command db handle idx query} {
     putcmdlog "#$handle# $command $query"
     if {[catch {$db eval $query row {
         set results {}
         foreach field $row(*) {
-            lappend results "[b]$field[/b]($row($field))"
+            lappend results "\002$field\002($row($field))"
         }
         putdcc $idx [join $results]
     }} error]} {
@@ -399,47 +383,4 @@ proc ::util::cleanup {nsRef db type} {
 proc ::util::registerCleanup {nsRef db} {
     variable ns
     return [bind evnt - prerehash [list ${ns}::cleanup $nsRef $db]]
-}
-
-proc ::util::fetch {url args} {
-    variable HTTP_TIMEOUT
-    variable HTTP_MAX_REDIRECTS
-    set response ""
-    set token ""
-
-    http::register https 443 tls::socket
-
-    array set URI [uri::split $url]
-    for {set i 0} {$i < $HTTP_MAX_REDIRECTS} {incr i} {
-        if {[llength $args]} {
-            set token [http::geturl "$url?[http::formatQuery {*}$args]" -timeout $HTTP_TIMEOUT]
-        } else {
-            set token [http::geturl $url -timeout $HTTP_TIMEOUT]
-        }
-        if {![string match {30[1237]} [http::ncode $token]]} {
-            break
-        }
-        set location [lmap {k v} [set ${token}(meta)] {
-            if {[string match -nocase location $k]} {set v} continue
-        }]
-        if {$location eq {}} {
-            break
-        }
-        array set uri [uri::split $location]
-        if {$uri(host) eq {}} {
-            set uri(host) $URI(host)
-        }
-        # problem w/ relative versus absolute paths
-        set url [uri::join {*}[array get uri]]
-        http::cleanup $token
-        set token ""
-    }
-
-    if {$token ne ""} {
-        set response [http::data $token]
-        http::cleanup $token
-    }
-
-    http::unregister https
-    return $response
 }
