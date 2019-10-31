@@ -1727,9 +1727,10 @@ proc showRankings {unick host handle dest text} {
 
     set users {}
     db eval $sql {
-        lappend users [format "#%d [b]%s[/b] -- R:%.3f W:%d L:%d (%.0f%%) %+d"\
+        lappend users [format "#%d [b]%s[/b] -> R:%.3f W:%d L:%d (%.0f%%) %+d"\
             $rank $nick $rating $wins $losses [expr ($wins / double($wins + $losses)) * 100] $streak]
     }
+    set users [tabulate $users {} " "]
     set totalResults [llength $users]
     if {$totalResults} {
         send $unick $dest "[b][u]FIGHT PICK RANKINGS[/u][/b]"
@@ -1785,11 +1786,12 @@ proc showStreaks {unick host handle dest text} {
 
     set users {}
     db eval $sql {
-        lappend users [format "%+d [b]%s[/b]  #%d" $streak $nick $rank]
+        lappend users [format "%+d [b]%s[/b] #%d" $streak $nick $rank]
     }
+    set users [tabulate $users {} " "]
     set totalResults [llength $users]
     if {$totalResults} {
-        send $unick $dest "[b]Win/Loss Streaks:[/b]"
+        send $unick $dest "[b][u]WIN STREAKS[/u][/b]"
         foreach user $users {
             send $unick $dest $user
         }
@@ -1952,9 +1954,9 @@ proc best {unick host handle dest text} {
             WHERE name REGEXP :eventName AND start_date <= $currentTime ORDER BY start_date ASC}]
         set numEvents [expr [llength $rows] / 2]
         if {$numEvents >= 2} {
-            send $unick $dest "Multiple events found, showing the results of the latest matching event"
+            send $unick $dest "Multiple events found. Showing the results of the latest matching event..."
         } elseif {$numEvents <= 0} {
-            send $unick $dest "Event $eventName not found"
+            send $unick $dest "Event '$eventName' not found."
             return 1
         }
         set evid [lindex $rows [expr [llength $rows] -2]]
@@ -1966,7 +1968,7 @@ proc best {unick host handle dest text} {
     set rows [db eval { SELECT nick, pick_result, event_name FROM vw_picks \
         WHERE pick_result IS NOT NULL AND event_id = :evid AND vote IS NOT 0 ORDER BY user_id}]
     if {$rows<=0} {
-        send $unick $dest "Nobody have picked for this event, or the results havent been published yet"
+        send $unick $dest "Nobody has picked for this event, or the results haven't been published yet."
         return 1
     }
     set pickList [list]
@@ -1985,7 +1987,7 @@ proc best {unick host handle dest text} {
     }
     set pickList [lsort -integer -index 1 -decreasing [lsort -integer -index 2 -decreasing $pickList]]
     send $unick $dest "[b][u]TOP PICKERS @ $event_name[/u][/b]"
-    send $unick $dest "[b]RANK   NICK        WINS  LOSSES[/b]"
+    send $unick $dest "[b]RANK  NICK        WINS  LOSSES[/b]"
     set oldWins 0
     set oldLosses 0
     set oldRank 0
@@ -2004,7 +2006,7 @@ proc best {unick host handle dest text} {
             }
             if {$nick == $unick} { set userRank $rank }
             if {$counter>$offset} {
-                send $unick $dest [format "# %-4d %-12s %-6d %-6d" $rank $nick $wins $losses]
+                send $unick $dest [format "#%-4d %-12s %-6d %-6d" $rank $nick $wins $losses]
             }
         }
         if {$counter == [expr $limit + $offset]} {
