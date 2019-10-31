@@ -194,7 +194,7 @@ proc ::sherdog::print {fighter {maxColSizes {*}}} {
             }
 
             if {[llength $maxColSizes]} {
-                lappend output {*}[tabulate $results $maxColSizes]
+                lappend output {*}[tabulate $results " | " $maxColSizes]
             } else {
                 lappend output {*}$results
             }
@@ -245,7 +245,7 @@ proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOppon
         }
 
         if {[llength $maxColSizes]} {
-            lappend output {*}[tabulate $results $maxColSizes]
+            lappend output {*}[tabulate $results " | " $maxColSizes]
         } else {
             lappend output {*}$results
         }

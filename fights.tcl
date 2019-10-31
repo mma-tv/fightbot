@@ -1727,7 +1727,7 @@ proc showRankings {unick host handle dest text} {
         lappend users [format "#%d [b]%s[/b] -> R:%.3f W:%d L:%d (%.0f%%) %+d"\
             $rank $nick $rating $wins $losses [expr {($wins / double($wins + $losses)) * 100}] $streak]
     }
-    set users [tabulate $users {} " "]
+    set users [tabulate $users " "]
     set totalResults [llength $users]
     if {$totalResults} {
         send $unick $dest "[b][u]FIGHT PICK RANKINGS[/u][/b]"
@@ -1785,7 +1785,7 @@ proc showStreaks {unick host handle dest text} {
     db eval $sql {
         lappend users [format "%+d [b]%s[/b] #%d" $streak $nick $rank]
     }
-    set users [tabulate $users {} " "]
+    set users [tabulate $users " "]
     set totalResults [llength $users]
     if {$totalResults} {
         send $unick $dest "[b][u]WIN STREAKS[/u][/b]"

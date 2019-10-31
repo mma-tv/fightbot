@@ -2,12 +2,12 @@ namespace eval ::formatter {
     namespace export tabulate s
 }
 
-proc ::formatter::tabulate {data {maxColSizes {}} {sep " | "}} {
+proc ::formatter::tabulate {rows {separator " | "} {maxColSizes {}}} {
     set sizes {}
     set table {}
 
-    foreach line $data {
-        set cols [splitString $line $sep]
+    foreach row $rows {
+        set cols [splitString $row $separator]
 
         # remove columns that have been given 0 size
         for {set i [expr {[llength $cols] - 1}]} {$i >= 0} {incr i -1} {
@@ -50,11 +50,11 @@ proc ::formatter::tabulate {data {maxColSizes {}} {sep " | "}} {
 
     foreach cols $table {
         set formatted {}
-        set formattedCols [format [join $columnFormats $sep] {*}$cols]
-        foreach col [splitString $formattedCols $sep] {
+        set formattedCols [format [join $columnFormats $separator] {*}$cols]
+        foreach col [splitString $formattedCols $separator] {
             lappend formatted [closeDanglingCtrlCodes $col]
         }
-        lappend tabulated [join $formatted $sep]
+        lappend tabulated [join $formatted $separator]
     }
 
     return $tabulated
