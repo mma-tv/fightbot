@@ -8,15 +8,15 @@
 
 ::tcl::tm::path add [file dirname [info script]]
 
+package require url
 package require tdom
-package require util::fetch
-package require util::ctrlcodes
-package require util::tabulate
+package require ctrlCodes
+package require formatter
 
 namespace eval ::sherdog {
     namespace export query parse print printSummary
-    namespace import ::util::tabulate
-    namespace import ::util::ctrlcodes::*
+    namespace import ::ctrlCodes::*
+    namespace import ::formatter::tabulate
 
     variable SEARCH_BASE  "https://www.bing.com/search"
     variable SEARCH_QUERY "site:sherdog.com/fighter %s"
@@ -31,7 +31,7 @@ if {[info commands putlog] eq ""} {
     proc putlog {s} { puts "\[*\] $s" }
 }
 
-proc sherdog::parse {html {url ""}} {
+proc ::sherdog::parse {html {url ""}} {
     # hack to clean up malformed html that breaks the parser
     regsub -all {(?:/\s*)+(?=/\s*>)} $html "" html
     set dom [dom parse -html $html]
@@ -119,7 +119,7 @@ proc sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc sherdog::query {query response err {mode -verbose} args} {
+proc ::sherdog::query {query response err {mode -verbose} args} {
     variable SEARCH_BASE
     variable SEARCH_QUERY
     variable SEARCH_LINK
@@ -132,7 +132,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     set url [cache link $query]
     if {$url eq ""} {
         putlog "Searching for sherdog link matching '$query'"
-        set searchResults [util::fetch $SEARCH_BASE q [format $SEARCH_QUERY $query]]
+        set searchResults [url::get $SEARCH_BASE q [format $SEARCH_QUERY $query]]
         set url [getFirstSearchResult $searchResults $SEARCH_LINK]
         regsub {\#.*} $url "" url
         if {$url eq ""} {
@@ -145,7 +145,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     set data [cache data $url]
     if {$data eq ""} {
         putlog "Fetching sherdog content at $url"
-        set html [util::fetch $url]
+        set html [url::get $url]
         if {[catch {set data [parse $html $url]}]} {
             set e "Failed to parse Sherdog content at $url for '$query' query. Notify the bot developer."
             return false
@@ -165,7 +165,7 @@ proc sherdog::query {query response err {mode -verbose} args} {
     return true
 }
 
-proc sherdog::print {fighter {maxColSizes {*}}} {
+proc ::sherdog::print {fighter {maxColSizes {*}}} {
     set output {}
 
     dict with fighter {
@@ -217,7 +217,7 @@ proc sherdog::print {fighter {maxColSizes {*}}} {
     return $output
 }
 
-proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponent true}} {
+proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponent true}} {
     set output {}
     set record "AMATEUR"
     set hasProFights [dict exists $fighter fights pro]
@@ -264,7 +264,7 @@ proc sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOpponen
     return $output
 }
 
-proc sherdog::fightInfo {fight} {
+proc ::sherdog::fightInfo {fight} {
     dict with fight {
         return [format "%s[b]%s[/b] | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
             [formatResult $result "\u258c"] [string toupper [string index $result 0]]\
@@ -273,7 +273,7 @@ proc sherdog::fightInfo {fight} {
     }
 }
 
-proc sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
+proc ::sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
     set widget ""
 
     if {[dict exists $fighter fights pro history]} {
@@ -289,7 +289,7 @@ proc sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
     return $widget
 }
 
-proc sherdog::countryCode {nationality {fmt "%s"}} {
+proc ::sherdog::countryCode {nationality {fmt "%s"}} {
     variable countries
     set c [string tolower [string trim $nationality]]
     if {$c ne ""} {
@@ -304,7 +304,7 @@ proc sherdog::countryCode {nationality {fmt "%s"}} {
     return ""
 }
 
-proc sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
+proc ::sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
     set days [expr ([clock scan $date] - [clock scan 0]) / 60 / 60 / 24]
     set time $days
     set unit "day"
@@ -326,7 +326,7 @@ proc sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
     return ""
 }
 
-proc sherdog::formatResult {result {c "\u25cf"}} {
+proc ::sherdog::formatResult {result {c "\u25cf"}} {
     set ret $result
 
     switch -nocase -- $result {
@@ -339,7 +339,7 @@ proc sherdog::formatResult {result {c "\u25cf"}} {
     return $ret
 }
 
-proc sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
+proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct false}} {
     set record [list $wins $losses $draws]
     if {$other} {
         lappend record $other
@@ -362,7 +362,7 @@ proc sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct fal
     return [join $record "-"]
 }
 
-proc sherdog::add {listVar format args} {
+proc ::sherdog::add {listVar format args} {
     upvar $listVar l
     if {[llength $args] && [join $args ""] eq ""} {
         return $l
@@ -370,13 +370,13 @@ proc sherdog::add {listVar format args} {
     return [lappend l [format $format {*}$args]]
 }
 
-proc sherdog::addn {listVar args} {
+proc ::sherdog::addn {listVar args} {
     upvar $listVar l
     lappend l " "
     return [add l {*}$args]
 }
 
-proc sherdog::getFirstSearchResult {html {substr "http"}} {
+proc ::sherdog::getFirstSearchResult {html {substr "http"}} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
     set link [$doc selectNodes [subst -nocommands {string(//h2//a[contains(@href, '$substr')][1]/@href)}]]
@@ -384,7 +384,7 @@ proc sherdog::getFirstSearchResult {html {substr "http"}} {
     return $link
 }
 
-proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
+proc ::sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
     set ret [string trim [$doc selectNodes "string($selector)"]]
     switch -- $format {
         string {
@@ -397,7 +397,7 @@ proc sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {da
     return $ret
 }
 
-proc sherdog::cache {store key args} {
+proc ::sherdog::cache {store key args} {
     variable cache
     variable CACHE_EXPIRATION
     variable USE_CACHE
@@ -423,7 +423,7 @@ proc sherdog::cache {store key args} {
     return ""
 }
 
-proc sherdog::pruneCache {args} {
+proc ::sherdog::pruneCache {args} {
     variable cache
     variable CACHE_EXPIRATION
 
@@ -436,17 +436,17 @@ proc sherdog::pruneCache {args} {
     }
 }
 
-proc sherdog::clearCache {args} {
+proc ::sherdog::clearCache {args} {
     variable cache
     array unset cache
 }
 
-proc sherdog::collapse {str} {
+proc ::sherdog::collapse {str} {
     regsub -all {\s{2,}} [string trim $str] " " collapsed
     return $collapsed
 }
 
-array set sherdog::countries {
+array set ::sherdog::countries {
     {afghanistan} AFG
     {aland islands} ALA
     {albania} ALB

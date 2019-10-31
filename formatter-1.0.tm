@@ -1,8 +1,8 @@
-namespace eval ::util {
-    namespace export tabulate
+namespace eval ::formatter {
+    namespace export tabulate s
 }
 
-proc ::util::tabulate {data {maxColSizes {}} {sep " | "}} {
+proc ::formatter::tabulate {data {maxColSizes {}} {sep " | "}} {
     set sizes {}
     set table {}
 
@@ -60,11 +60,11 @@ proc ::util::tabulate {data {maxColSizes {}} {sep " | "}} {
     return $tabulated
 }
 
-proc ::util::splitString {str substr} {
+proc ::formatter::splitString {str substr} {
     return [split [string map [list $substr \uffff] $str] \uffff]
 }
 
-proc ::util::closeDanglingCtrlCodes {str} {
+proc ::formatter::closeDanglingCtrlCodes {str} {
     set s $str
     set matches {}
     foreach c {\002 \003 \026 \037} {
@@ -76,4 +76,8 @@ proc ::util::closeDanglingCtrlCodes {str} {
         append s [string index $str $c]
     }
     return $s
+}
+
+proc ::formatter::s {quantity {suffix "s"}} {
+    return [expr {$quantity == 1 ? "" : $suffix}]
 }

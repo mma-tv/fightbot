@@ -1,23 +1,15 @@
-####################################################################
-#
-# Module: fetch.tm
-# Author: makk@EFnet
-# Description: General purpose HTTP query function
-#
-####################################################################
-
 package require tls
 package require uri
 package require http
 
-namespace eval ::util {
+namespace eval ::url {
     namespace export fetch
 
     variable HTTP_TIMEOUT 5000
     variable HTTP_MAX_REDIRECTS 5
 }
 
-proc util::fetch {url args} {
+proc ::url::get {url args} {
     variable HTTP_TIMEOUT
     variable HTTP_MAX_REDIRECTS
     set response ""

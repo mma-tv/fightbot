@@ -1,14 +1,14 @@
-namespace eval ::util {
+namespace eval ::date {
     namespace export tz timeDiff toGMT toLocal now currentYear timezone\
         formatShortDate formatDateTime formatWordDate formatWordDateTime
 
     variable tz ":America/New_York"  ;# "-0500"
     if {[catch {clock scan 0 -timezone $tz}]} {
-        set ::util::tz "-0500"
+        set tz "-0500"
     }
 }
 
-proc ::util::tz {} {
+proc ::date::tz {} {
     variable tz
     return $tz
 }
@@ -16,7 +16,7 @@ proc ::util::tz {} {
 # Some sort of Eggdrop/TCL bug results in clock changes not updating properly,
 # so we anchor at [unixtime] to be safe
 
-proc ::util::timeDiff {date1 {future "away"} {past "ago"}} {
+proc ::date::timeDiff {date1 {future "away"} {past "ago"}} {
     set secs [expr [clock scan $date1 -base [unixtime] -gmt 1] - [unixtime]]
     set rel  [expr {$secs < 0 ? $past : $future}]
     set secs [expr abs($secs)]
@@ -34,27 +34,27 @@ proc ::util::timeDiff {date1 {future "away"} {past "ago"}} {
     return [expr {[info exists text] ? "$text$rel" : "NOW"}]
 }
 
-proc ::util::toGMT {{date ""}} {
+proc ::date::toGMT {{date ""}} {
     return [clock format [clock scan $date -base [unixtime] -timezone [tz]] -format "%Y-%m-%d %H:%M:%S" -gmt 1]
 }
 
-proc ::util::toLocal {{date ""}} {
+proc ::date::toLocal {{date ""}} {
     return [clock format [clock scan $date -base [unixtime] -gmt 1] -format "%Y-%m-%d %H:%M:%S" -timezone [tz]]
 }
 
-proc ::util::now {{gmt 1}} {
+proc ::date::now {{gmt 1}} {
     return [expr {$gmt ? [toGMT] : [toLocal]}]
 }
 
-proc ::util::currentYear {} {
+proc ::date::currentYear {} {
     return [clock format [unixtime] -format "%Y" -timezone [tz]]
 }
 
-proc ::util::timezone {{withOffset 0}} {
+proc ::date::timezone {{withOffset 0}} {
     return [clock format [unixtime] -format "%Z[expr {$withOffset ? " %z" : ""}]" -timezone [tz]]
 }
 
-proc ::util::validTimeZone {tz} {
+proc ::date::validTimeZone {tz} {
     set timezones {
         gmt ut utc bst wet wat at nft nst ndt ast adt est edt cst cdt mst mdt
         pst pdt yst ydt hst hdt cat ahst nt idlw cet cest met mewt mest swt
@@ -64,7 +64,7 @@ proc ::util::validTimeZone {tz} {
     return [expr {[lsearch -exact $timezones $tz] != -1}]
 }
 
-proc ::util::wordDay {day} {
+proc ::date::wordDay {day} {
     if {[regexp {^\d+$} $day]} {
         if {$day < 11 || $day > 13} {
             switch [string index $day end] {
@@ -78,31 +78,31 @@ proc ::util::wordDay {day} {
     return $day
 }
 
-proc ::util::shortYear {utime format} {
+proc ::date::shortYear {utime format} {
     if {[clock format [unixtime] -format "%Y" -timezone [tz]] == [clock format $utime -format "%Y" -timezone [tz]]} {
         return ""
     }
     return $format
 }
 
-proc ::util::formatShortDate {datetime} {
+proc ::date::formatShortDate {datetime} {
     set dt [clock scan $datetime -base [unixtime] -gmt 1]
     return [string trimleft [clock format $dt -format "%m/%d[shortYear $dt "/%y"]" -timezone [tz]] 0]
 }
 
-proc ::util::formatDateTime {datetime} {
+proc ::date::formatDateTime {datetime} {
     set dt [clock scan $datetime -base [unixtime] -gmt 1]
     regsub -all {\s{2,}} [clock format $dt -format "%m/%d[shortYear $dt "/%Y"] %l:%M%P" -timezone [tz]] " " date
     return [string trimleft $date 0]
 }
 
-proc ::util::formatWordDate {datetime {formal 1}} {
+proc ::date::formatWordDate {datetime {formal 1}} {
     set dt [clock scan $datetime -base [unixtime] -gmt 1]
     set date [clock format $dt -format "%b %e[shortYear $dt ", %Y"]" -timezone [tz]]
     return "[lindex $date 0] [expr {$formal ? [wordDay [lrange $date 1 end]] : [lrange $date 1 end]}]"
 }
 
-proc ::util::formatWordDateTime {datetime {formal 1}} {
+proc ::date::formatWordDateTime {datetime {formal 1}} {
     set dt [clock scan $datetime -base [unixtime] -gmt 1]
     set date [clock format $dt -format "%a, %b %e[shortYear $dt ", %Y"] at %l:%M%P" -timezone [tz]]
     regsub {:00} $date "" date

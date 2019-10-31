@@ -9,7 +9,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 30, 2019
+#  Last Update: Oct 31, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -17,17 +17,25 @@
 
 ::tcl::tm::path add [file dirname [info script]]
 
-package require util
+package require bot
+package require irc
+package require log
+package require date
+package require database
+package require formatter
+package require ctrlCodes
 package require sherdog
 package require bestfightodds
-package require util::date
-package require util::tabulate
 
 namespace eval ::fights {
 
-namespace import ::util::*
-namespace import ::util::tabulate
-namespace import ::util::ctrlcodes::*
+namespace import ::bot::*
+namespace import ::irc::*
+namespace import ::date::*
+namespace import ::database::*
+namespace import ::ctrlCodes::*
+namespace import ::formatter::*
+namespace import ::log::logStackable
 
 variable botTitle      "[b][u]FIGHT POLL[/u][/b]"
 

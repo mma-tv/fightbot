@@ -8,15 +8,15 @@
 
 ::tcl::tm::path add [file dirname [info script]]
 
+package require url
 package require tdom
-package require util::fetch
 
 namespace eval ::bestfightodds {
     namespace export import
     variable URL "https://www.bestfightodds.com"
 }
 
-proc bestfightodds::parse {html} {
+proc ::bestfightodds::parse {html} {
     set dom [dom parse -html $html]
     set doc [$dom documentElement]
     set events {}
@@ -60,11 +60,11 @@ proc bestfightodds::parse {html} {
     return $events
 }
 
-proc bestfightodds::import {data error} {
+proc ::bestfightodds::import {data error} {
     variable URL
     upvar $data d
     upvar $error e
-    if {[catch {set d [parse [util::fetch $URL]]} err]} {
+    if {[catch {set d [parse [url::get $URL]]} err]} {
         set e $err
         return false
     }
