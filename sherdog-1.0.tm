@@ -27,7 +27,7 @@ namespace eval ::sherdog {
 }
 
 if {[info commands putlog] eq ""} {
-    proc putlog {s} { puts "\[*\] $s" }
+    proc putlog {s} {}
 }
 
 proc ::sherdog::parse {html {url ""}} {
