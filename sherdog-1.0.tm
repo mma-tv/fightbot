@@ -15,8 +15,7 @@ package require formatter
 
 namespace eval ::sherdog {
     namespace export query parse print printSummary
-    namespace import ::ctrlCodes::*
-    namespace import ::formatter::tabulate
+    namespace import ::ctrlCodes::* ::formatter::tabulate
 
     variable SEARCH_BASE  "https://www.bing.com/search"
     variable SEARCH_QUERY "site:sherdog.com/fighter %s"

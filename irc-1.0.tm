@@ -3,8 +3,7 @@ package require formatter
 
 namespace eval ::irc {
     namespace export put putMessage putNotice putAction mbind
-    namespace import ::log::log
-    namespace import ::formatter::s
+    namespace import ::log::log ::formatter::s
 
     variable maxMessageLen 510
     variable maxLineWrap   5  ;# max lines to wrap when text is too long
