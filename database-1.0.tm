@@ -46,8 +46,8 @@ proc ::database::populate {sql} {
     set s ""
     set pos 0
     foreach {first last} [join [regexp -all -indices -inline {::[\w$]+} $sql]] {
-        append s [string range $sql $pos [expr $first - 1]]
-        set var [string range $sql [expr $first + 2] $last]
+        append s [string range $sql $pos [expr {$first - 1}]]
+        set var [string range $sql [expr {$first + 2}] $last]
         upvar $var list
         if {[info exists list]} {
             set varName "${var}$"
@@ -64,7 +64,7 @@ proc ::database::populate {sql} {
         } else {
             append s "NULL"
         }
-        set pos [expr $last + 1]
+        set pos [expr {$last + 1}]
     }
     return [append s [string range $sql $pos end]]
 }

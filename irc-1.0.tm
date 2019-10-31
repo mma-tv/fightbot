@@ -38,8 +38,8 @@ proc ::irc::put {text {queue putquick} {loglevel 0} {prefix ""} {suffix ""} {ell
     variable maxMessageLen
     variable maxLineWrap
 
-    set maxText [expr $maxMessageLen - [string length $botname]\
-        - [string length $prefix] - [string length $suffix] - 2]
+    set maxText [expr {$maxMessageLen - [string length $botname]\
+        - [string length $prefix] - [string length $suffix] - 2}]
 
     set overflow [expr {$maxText < [string length $text]}]
     if {$overflow} {
@@ -49,7 +49,7 @@ proc ::irc::put {text {queue putquick} {loglevel 0} {prefix ""} {suffix ""} {ell
     set lines 0
     set l [string length $text]
     for {set i 0} {$i < $l && $lines < $maxLineWrap} {incr i $maxText} {
-        set message [string range $text $i [expr $i + $maxText - 1]]
+        set message [string range $text $i [expr {$i + $maxText - 1}]]
         if {$overflow} {
             set message [expr {$i ? "$ellipsis$message" : "$message$ellipsis"}]
         }

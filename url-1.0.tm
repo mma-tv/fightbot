@@ -3,7 +3,7 @@ package require uri
 package require http
 
 namespace eval ::url {
-    namespace export fetch
+    namespace export get
 
     variable HTTP_TIMEOUT 5000
     variable HTTP_MAX_REDIRECTS 5

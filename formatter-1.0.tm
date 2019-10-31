@@ -39,7 +39,7 @@ proc ::formatter::tabulate {data {maxColSizes {}} {sep " | "}} {
     foreach size $sizes {
         set max [lindex $maxColSizes $i]
         if {[string is digit -strict $max]} {
-            lappend columnFormats "%-[expr min($size, $max)].${max}s"
+            lappend columnFormats "%-[expr {min($size, $max)}].${max}s"
         } else {
             lappend columnFormats "%-${size}s"
         }
@@ -68,7 +68,7 @@ proc ::formatter::closeDanglingCtrlCodes {str} {
     set s $str
     set matches {}
     foreach c {\002 \003 \026 \037} {
-        if {[expr [regexp -all -indices $c $str i] & 1]} {
+        if {[expr {[regexp -all -indices $c $str i] & 1}]} {
             lappend matches [lindex $i 0]
         }
     }

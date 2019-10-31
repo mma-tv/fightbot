@@ -17,14 +17,14 @@ proc ::date::tz {} {
 # so we anchor at [unixtime] to be safe
 
 proc ::date::timeDiff {date1 {future "away"} {past "ago"}} {
-    set secs [expr [clock scan $date1 -base [unixtime] -gmt 1] - [unixtime]]
+    set secs [expr {[clock scan $date1 -base [unixtime] -gmt 1] - [unixtime]}]
     set rel  [expr {$secs < 0 ? $past : $future}]
-    set secs [expr abs($secs)]
-    set days [expr $secs / (60 * 60 * 24)]
+    set secs [expr {abs($secs)}]
+    set days [expr {$secs / (60 * 60 * 24)}]
     set secs [expr {$days ? 0 : $secs % (60 * 60 * 24)}]
-    set hrs  [expr $secs / (60 * 60)]
-    set secs [expr $secs % (60 * 60)]
-    set mins [expr $secs / 60]
+    set hrs  [expr {$secs / (60 * 60)}]
+    set secs [expr {$secs % (60 * 60)}]
+    set mins [expr {$secs / 60}]
     set secs [expr {($hrs || $mins) ? 0 : $secs % 60}]
     foreach {value unit} [list $days d $hrs h $mins m $secs s] {
         if {$value > 0} {

@@ -51,7 +51,7 @@ proc ::sherdog::parse {html {url ""}} {
 
     dict with fighter {
         if {$birthDate ne "" && ![catch {set dt [clock scan $birthDate]}]} {
-            set age [expr ([clock seconds] - $dt) / (60 * 60 * 24 * 365)]
+            set age [expr {([clock seconds] - $dt) / (60 * 60 * 24 * 365)}]
         }
     }
 
@@ -278,7 +278,7 @@ proc ::sherdog::graphicalRecord {fighter {limit 20} {prefix ""}} {
     if {[dict exists $fighter fights pro history]} {
         append widget $prefix
 
-        foreach fight [lrange [dict get $fighter fights pro history] end-[expr $limit - 1] end] {
+        foreach fight [lrange [dict get $fighter fights pro history] end-[expr {$limit - 1}] end] {
             dict with fight {
                 append widget [formatResult $result]
             }
@@ -304,16 +304,16 @@ proc ::sherdog::countryCode {nationality {fmt "%s"}} {
 }
 
 proc ::sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
-    set days [expr ([clock scan $date] - [clock scan 0]) / 60 / 60 / 24]
+    set days [expr {([clock scan $date] - [clock scan 0]) / 60 / 60 / 24}]
     set time $days
     set unit "day"
     if {$days == 0} {
         return "TODAY"
     } elseif {$days >= 60} {
-        set time [expr $days / 30]
+        set time [expr {$days / 30}]
         set unit "month"
     } elseif {$days >= 14} {
-        set time [expr $days / 7]
+        set time [expr {$days / 7}]
         set unit "week"
     }
     if {$useShortFormat == true} {
@@ -352,7 +352,7 @@ proc ::sherdog::formatRecord {{wins 0} {losses 0} {draws 0} {other 0} {showPct f
 
         set recordPct {}
         foreach val $record {
-            lappend recordPct [expr round(($val / double($total)) * 100)]
+            lappend recordPct [expr {round(($val / double($total)) * 100)}]
         }
 
         return [format "%s (%s%%)" [join $record "-"] [join $recordPct "%-"]]
@@ -412,8 +412,8 @@ proc ::sherdog::cache {store key args} {
         set cache($store,$k) [list $now [lindex $args 0]]
     } elseif {[info exists cache($store,$k)]} {
         foreach {timestamp data} $cache($store,$k) {
-            set minutesElapsed [expr ($now - $timestamp) / 60]
-            if {[expr $minutesElapsed <= $CACHE_EXPIRATION]} {
+            set minutesElapsed [expr {($now - $timestamp) / 60}]
+            if {$minutesElapsed <= $CACHE_EXPIRATION} {
                 return $data
             }
         }
@@ -429,7 +429,7 @@ proc ::sherdog::pruneCache {args} {
     set now [clock seconds]
     foreach key [array names cache] {
         set minutesElapsed [lindex $cache($key) 0]
-        if {[expr ($now - $minutesElapsed) / 60] > $CACHE_EXPIRATION} {
+        if {[expr {($now - $minutesElapsed) / 60}] > $CACHE_EXPIRATION} {
             array unset cache $key
         }
     }

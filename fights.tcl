@@ -378,7 +378,7 @@ proc listEvents {unick host handle dest text} {
 
     set events [db eval $query]
 
-    set totalEvents [expr [llength $events] / 3]
+    set totalEvents [expr {[llength $events] / 3}]
     if {$totalEvents} {
         set tzNotice "\[ all times are [timezone 1] \]"
         if {$expr eq ""} {
@@ -398,7 +398,7 @@ proc listEvents {unick host handle dest text} {
             send $unick $dest $eventItem
         }
         if {$totalEvents == $limit} {
-            send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit] $expr[/b]"
+            send $unick $dest "For the next $limit results, type: [b]$trigger[expr {$offset + $limit}] $expr[/b]"
         }
         if {$expr eq ""} {
             send $unick $dest "To search for an event, type: [b].findevent <eventRE>[/b]"
@@ -662,7 +662,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                 AND picks.user_id IN(SELECT id FROM users WHERE nick = :user)
                 WHERE event_id = :event(id) ORDER BY fights.id;
         }]
-        set totalFights [expr [llength $rows] / 10]
+        set totalFights [expr {[llength $rows] / 10}]
         if {$totalFights} {
 
             set numFormat [getNumFormat $totalFights]
@@ -1029,10 +1029,10 @@ proc endPoll {} {
                     if {$fighter2Votes eq ""} {
                         set fighter2Votes 0
                     }
-                    set totalVotes [expr $fighter1Votes + $fighter2Votes]
+                    set totalVotes [expr {$fighter1Votes + $fighter2Votes}]
                     if {$totalVotes > 0} {
-                        set fighter1Percentage [format "%.0f%%" [expr ($fighter1Votes / double($totalVotes)) * 100]]
-                        set fighter2Percentage [format "%.0f%%" [expr ($fighter2Votes / double($totalVotes)) * 100]]
+                        set fighter1Percentage [format "%.0f%%" [expr {($fighter1Votes / double($totalVotes)) * 100}]]
+                        set fighter2Percentage [format "%.0f%%" [expr {($fighter2Votes / double($totalVotes)) * 100}]]
                         mmsg [list\
                             "[b]$fighter1[/b] ($fighter1Votes/$fighter1Percentage) vs.\
                             [b]$fighter2[/b] ($fighter2Votes/$fighter2Percentage)"\
@@ -1077,7 +1077,7 @@ proc runAnnouncement {seconds} {
                 "!2 -> [string trimright [string map {{ | } { }} [lindex $fighters 1]]]"\
                 "Voting !1~ or !2~ will not affect your stats."\
             ] $eventName
-            set pollTimer [utimer $pollInterval [list ${ns}::runAnnouncement [expr $seconds - $pollInterval]]]
+            set pollTimer [utimer $pollInterval [list ${ns}::runAnnouncement [expr {$seconds - $pollInterval}]]]
         } else {
             endPoll
         }
@@ -1118,7 +1118,7 @@ proc startPoll {unick host handle dest index} {
             sherdog::query $fight($fighter) results err
         }
 
-        runAnnouncement [expr $pollDuration * 60]
+        runAnnouncement [expr {$pollDuration * 60}]
     }
     return 1
 }
@@ -1259,9 +1259,9 @@ proc announceResult {unick host handle dest result} {
                 set messages [list\
                     $resultText\
                     [format "Winner%s (%.0f%%): %s"\
-                        [s $totalWinners] [expr ($totalWinners / double($totalVotes)) * 100] $winners]\
+                        [s $totalWinners] [expr {($totalWinners / double($totalVotes)) * 100}] $winners]\
                     [format "Loser%s (%.0f%%): %s"\
-                        [s $totalLosers] [expr ($totalLosers / double($totalVotes)) * 100] $losers]\
+                        [s $totalLosers] [expr {($totalLosers / double($totalVotes)) * 100}] $losers]\
                     [format "%d vote%s total." $totalVotes [s $totalVotes]]\
                 ]
 
@@ -1325,7 +1325,7 @@ mbind {msg pub} $adminFlag {.saynd} [list ${ns}::announceOther "nd"]
 proc allowPick {unick dest eventName eventDate} {
     variable minPickDateDiff
     set eventTime [clock scan $eventDate -base [unixtime] -gmt 1]
-    if {[expr ($eventTime - [unixtime]) / (60 * 60)] < $minPickDateDiff} {
+    if {[expr {($eventTime - [unixtime]) / (60 * 60)}] < $minPickDateDiff} {
         send $unick $dest "Sorry, you can only change your picks up to [u]$minPickDateDiff\
             hour[s $minPickDateDiff][/u] before the event starts. After that, you can only make\
             picks in the channel during the live fight announcements."
@@ -1476,7 +1476,7 @@ proc findPicks {unick host handle dest text} {
         }
     }
     if {[info exists picks]} {
-        set totalEvents [expr [llength $events] / 3]
+        set totalEvents [expr {[llength $events] / 3}]
         set who [expr {[string equal -nocase $user $unick] ? "Your" : "[b]$user's[/b]"}]
         send $unick $dest "$who $totalPicks pick[s $totalPicks] for $totalEvents matching event[s $totalEvents]:"
         set eventCounter 0
@@ -1616,7 +1616,7 @@ proc mergeUsers {unick host handle dest text} {
             if {$force eq ""} {
                 set targetNick [lindex $targetUser 1]
                 send $unick $dest "This action will merge the stats and picks from\
-                    [expr $totalDupes + 1] users and permanently [u]remove[/u]\
+                    [expr {$totalDupes + 1}] users and permanently [u]remove[/u]\
                     [b][join $dupes "[/b], [b]"][/b] from the database."
                 send $unick $dest "Target user's stats:"
                 send $unick $dest " * [stats $unick $host $handle $dest $targetNick 1]"
@@ -1685,8 +1685,8 @@ proc stats {unick host handle dest user args} {
             users.best_streak AS bestStreak, rating, rank
             FROM rankings INNER JOIN users ON user_id = users.id WHERE users.nick = :user;
     } {
-        set winPercent [expr round(($wins / double($wins + $losses)) * 100)]
-        set lossPercent [expr 100 - $winPercent]
+        set winPercent [expr {round(($wins / double($wins + $losses)) * 100)}]
+        set lossPercent [expr {100 - $winPercent}]
         set msg [format "%s >> rank #%d, rating %.3f, %d win%s (%d%%), %d loss%s (%d%%), streak %+d"\
             $nick $rank $rating $wins [s $wins] $winPercent $losses [s $losses "es"] $lossPercent $streak]
         if {$bestStreak > 0} {
@@ -1728,7 +1728,7 @@ proc showRankings {unick host handle dest text} {
     set users {}
     db eval $sql {
         lappend users [format "#%d [b]%s[/b] -> R:%.3f W:%d L:%d (%.0f%%) %+d"\
-            $rank $nick $rating $wins $losses [expr ($wins / double($wins + $losses)) * 100] $streak]
+            $rank $nick $rating $wins $losses [expr {($wins / double($wins + $losses)) * 100}] $streak]
     }
     set users [tabulate $users {} " "]
     set totalResults [llength $users]
@@ -1739,7 +1739,7 @@ proc showRankings {unick host handle dest text} {
         }
         if {$totalResults == $limit} {
             send $unick $dest "For the next $limit results, type:\
-                [b]$trigger[expr $offset + $limit] $maxRank[/b]"
+                [b]$trigger[expr {$offset + $limit}] $maxRank[/b]"
         }
     } elseif {$offset > 0 || $maxRank > 0} {
         send $unick $dest "No more results."
@@ -1797,7 +1797,7 @@ proc showStreaks {unick host handle dest text} {
         }
         if {$totalResults == $limit} {
             send $unick $dest "For the next $limit results, type:\
-                [b]$trigger[expr $offset + $limit] $maxStreak[/b]"
+                [b]$trigger[expr {$offset + $limit}] $maxStreak[/b]"
         }
     } elseif {$offset > 0 || $maxStreak > 0} {
         send $unick $dest "No more results."
@@ -1817,7 +1817,7 @@ proc bestStreaks {unick host handle dest text} {
             FROM users WHERE best_streak > 1 GROUP BY best_streak
             ORDER BY best_streak DESC LIMIT 5
     }]
-    set totalRecords [expr [llength $streaks] / 3]
+    set totalRecords [expr {[llength $streaks] / 3}]
     if {$totalRecords} {
         send $unick $dest "[b][u]TOP 5 WIN STREAKERS OF ALL TIME[/u][/b]"
         set winsFormat "%[string length [lindex $streaks 1]]d"
@@ -1842,7 +1842,7 @@ proc worstStreaks {unick host handle dest text} {
             FROM users WHERE worst_streak < -1 GROUP BY worst_streak
             ORDER BY worst_streak LIMIT 5
     }]
-    set totalRecords [expr [llength $streaks] / 3]
+    set totalRecords [expr {[llength $streaks] / 3}]
     if {$totalRecords} {
         send $unick $dest "[b][u]THE 5 WORST STREAKERS OF ALL TIME[/u][/b]"
         set lossesFormat "%[string length [lindex $streaks 1]]d"
@@ -1952,14 +1952,14 @@ proc best {unick host handle dest text} {
         set currentTime [now]
         set rows [db eval {SELECT id, name FROM events \
             WHERE name REGEXP :eventName AND start_date <= $currentTime ORDER BY start_date ASC}]
-        set numEvents [expr [llength $rows] / 2]
+        set numEvents [expr {[llength $rows] / 2}]
         if {$numEvents >= 2} {
             send $unick $dest "Multiple events found. Showing the results of the latest matching event..."
         } elseif {$numEvents <= 0} {
             send $unick $dest "Event '$eventName' not found."
             return 1
         }
-        set evid [lindex $rows [expr [llength $rows] -2]]
+        set evid [lindex $rows [expr {[llength $rows] - 2}]]
     }
     if {[info exist showUsage]} {
         send $unick $dest "Usage: .best <eventRE>"
@@ -2009,7 +2009,7 @@ proc best {unick host handle dest text} {
                 send $unick $dest [format "#%-4d %-12s %-6d %-6d" $rank $nick $wins $losses]
             }
         }
-        if {$counter == [expr $limit + $offset]} {
+        if {$counter == [expr {$limit + $offset}]} {
             set reachedLimit 1
             break
         }
@@ -2022,7 +2022,7 @@ proc best {unick host handle dest text} {
         if {$limit != 20} {
             set limit2 ",$limit"
         }
-        send $unick $dest "For the next $limit results, type: [b]$trigger[expr $offset + $limit]$limit2 $expr[/b]"
+        send $unick $dest "For the next $limit results, type: [b]$trigger[expr {$offset + $limit}]$limit2 $expr[/b]"
     }
 
     return [logStackable $unick $host $handle $dest $text]
