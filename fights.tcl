@@ -313,7 +313,7 @@ proc importFightsTrigger {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.importfights .importevents .updatefights} ${ns}::importFightsTrigger
+mbind {msg pub} $adminFlag {.import} ${ns}::importFightsTrigger
 
 proc setTimeZone {unick host handle dest timezone} {
     if {![onPollChan $unick]} { return 0 }
@@ -337,7 +337,7 @@ proc setTimeZone {unick host handle dest timezone} {
     }
     return 1
 }
-mbind {msg pub} - {.tz .timezone .settz .settimezone} ${ns}::setTimeZone
+mbind {msg pub} - {.tz .timezone} ${ns}::setTimeZone
 
 proc getLimits {text outTrigger outOffset outLimit outArgs} {
     variable maxResults
@@ -419,7 +419,7 @@ proc listEvents {unick host handle dest text} {
     }
     return [logStackable $unick $host $handle $dest $text]
 }
-mbind {msgm pubm} - {"% .events*" "% .findevent*" "% .listevents*"} ${ns}::listEvents
+mbind {msgm pubm} - {"% .events*" "% .findevent*"} ${ns}::listEvents
 
 proc event {unick host handle dest index} {
     if {![onPollChan $unick]} { return 0 }
@@ -559,10 +559,7 @@ proc mergeEvents {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {
-    .mergeevent .mergeevents .mergevent .mergevents
-    .swapevent .swapevents .switchevent .switchevents
-} ${ns}::mergeEvents
+mbind {msg pub} $adminFlag {.mergeevent .mergeevents .mergevent .mergevents} ${ns}::mergeEvents
 
 proc endEvent {unick host handle dest text} {
     if {[getEvent $unick $host $dest event]} {
@@ -574,7 +571,7 @@ proc endEvent {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.endevent .closeevent .stopevent} ${ns}::endEvent
+mbind {msg pub} $adminFlag {.endevent} ${ns}::endEvent
 
 proc getNotes {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
@@ -638,7 +635,7 @@ proc clearNotes {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.unsetnote .unsetnotes .clearnote .clearnotes} ${ns}::clearNotes
+mbind {msg pub} $adminFlag {.clearnote .clearnotes} ${ns}::clearNotes
 
 proc announceEvent {unick host handle dest text} {
     global botnick
@@ -770,7 +767,7 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
     }
     return 1
 }
-mbind {msg pub} - {.fights .listfights} ${ns}::listFights
+mbind {msg pub} - {.fights} ${ns}::listFights
 
 proc addFight {unick host handle dest fight} {
     if {![onPollChan $unick]} { return 0 }
@@ -885,8 +882,8 @@ proc lockFight {lockState unick host handle dest index} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.lock .lockfight} [list ${ns}::lockFight 1]
-mbind {msg pub} $adminFlag {.unlock .unlockfight} [list ${ns}::lockFight 0]
+mbind {msg pub} $adminFlag {.lock} [list ${ns}::lockFight 1]
+mbind {msg pub} $adminFlag {.unlock} [list ${ns}::lockFight 0]
 
 proc findFights {unick host handle dest query} {
     if {![onPollChan $unick]} { return 0 }
@@ -1130,7 +1127,7 @@ proc startPoll {unick host handle dest index} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.poll .pollstart .startpoll .sayfight .announcefight .announce} ${ns}::startPoll
+mbind {msg pub} $adminFlag {.poll} ${ns}::startPoll
 
 proc stopPoll {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
@@ -1138,7 +1135,7 @@ proc stopPoll {unick host handle dest text} {
     endPoll
     return 1
 }
-mbind {msg pub} $adminFlag {.stop .pollstop .stoppoll .endpoll .pollend .cancelpoll .pollcancel} ${ns}::stopPoll
+mbind {msg pub} $adminFlag {.stop} ${ns}::stopPoll
 
 proc setResult {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
@@ -1316,9 +1313,7 @@ proc announceResult {unick host handle dest result} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {
-    .sayresult .sayresults .saywinner .announcewinner .announceresult .announceresults .result .results
-} ${ns}::announceResult
+mbind {msg pub} $adminFlag {.sayresult .saywinner} ${ns}::announceResult
 
 proc announceOther {result unick host handle dest notes} {
     if {![onPollChan $unick]} { return 0 }
@@ -1328,9 +1323,9 @@ proc announceOther {result unick host handle dest notes} {
     }
     return [announceResult $unick $host $handle $dest "$result"]
 }
-mbind {msg pub} $adminFlag {.saydraw .announcedraw} [list ${ns}::announceOther "draw"]
-mbind {msg pub} $adminFlag {.saync .announcenc} [list ${ns}::announceOther "nc"]
-mbind {msg pub} $adminFlag {.saynd .announcend} [list ${ns}::announceOther "nd"]
+mbind {msg pub} $adminFlag {.saydraw} [list ${ns}::announceOther "draw"]
+mbind {msg pub} $adminFlag {.saync} [list ${ns}::announceOther "nc"]
+mbind {msg pub} $adminFlag {.saynd} [list ${ns}::announceOther "nd"]
 
 proc allowPick {unick dest eventName eventDate} {
     variable minPickDateDiff
@@ -1402,7 +1397,7 @@ proc pick {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} - {.pick .vote .addpick .addvote} ${ns}::pick
+mbind {msg pub} - {.pick .vote} ${ns}::pick
 
 proc delPick {unick host handle dest arg} {
     if {![onPollChan $unick]} { return 0 }
@@ -1840,9 +1835,7 @@ proc bestStreaks {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} - {
-    .beststreaks .top .topstreak .topstreaks .records .recordstreaks
-} ${ns}::bestStreaks
+mbind {msg pub} - {.beststreaks .top .topstreak .topstreaks} ${ns}::bestStreaks
 
 proc worstStreaks {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
@@ -1944,7 +1937,7 @@ proc searchSherdog {unick host handle dest text} {
     return 1
 }
 mbind {msgm pubm} - {"% .sh*"} ${ns}::searchSherdog
-bind time - "30 * * * *" sherdog::pruneCache
+bind time - "30 * * * *" ::sherdog::pruneCache
 
 proc best {unick host handle dest text} {
     if {![onPollChan $unick]} { return 1 }
@@ -2048,7 +2041,7 @@ proc help {unick host handle dest text} {
     send $unick $dest "[b][u]FIGHT BOT $scriptVersion HELP[/u][/b]"
 
     foreach {access line} [concat {
-        @ {.importfights ........................................... Import fights and betting lines from the web}
+        @ {.import ................................................. Import fights and betting lines from the web}
         - {.events ................................................. Show all upcoming fight events}
         - {.event <index> .......................................... Select event as command context}
         @ {.addevent <eventName>[; yyyy-MM-dd HH:mm Z] ............. Add fight event to be held on specified date}
@@ -2100,7 +2093,7 @@ proc help {unick host handle dest text} {
     send $unick $dest "End of help."
     return 1
 }
-mbind {msg pub} - {.help .fighthelp .fightshelp .helpfight .helpfights} ${ns}::help
+mbind {msg pub} - {.help} ${ns}::help
 
 if {[catch {init} error]} {
     die $error
