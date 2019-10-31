@@ -29,13 +29,8 @@ package require bestfightodds
 
 namespace eval ::fights {
 
-namespace import ::bot::*
-namespace import ::irc::*
-namespace import ::date::*
-namespace import ::database::*
-namespace import ::ctrlCodes::*
-namespace import ::formatter::*
-namespace import ::log::logStackable
+namespace import ::bot::* ::irc::* ::date::* ::database::*
+namespace import ::ctrlCodes::* ::formatter::* ::log::logStackable
 
 variable botTitle      "[b][u]FIGHT POLL[/u][/b]"
 
@@ -54,7 +49,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.24"
+variable scriptVersion "1.5.25"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -313,7 +308,7 @@ proc importFightsTrigger {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.import} ${ns}::importFightsTrigger
+mbind {msg pub} $adminFlag {.import .importfights .importevents} ${ns}::importFightsTrigger
 
 proc setTimeZone {unick host handle dest timezone} {
     if {![onPollChan $unick]} { return 0 }
