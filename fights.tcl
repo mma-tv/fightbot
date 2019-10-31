@@ -337,10 +337,7 @@ mbind {msg pub} - {.tz .timezone} ${ns}::setTimeZone
 proc getLimits {text outTrigger outOffset outLimit outArgs} {
     variable maxResults
 
-    upvar $outTrigger trigger
-    upvar $outOffset offset
-    upvar $outLimit limit
-    upvar $outArgs args
+    upvar $outTrigger trigger $outOffset offset $outLimit limit $outArgs args
 
     set trigger [lindex [split $text] 0]
     set offset 0

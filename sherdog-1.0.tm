@@ -118,15 +118,14 @@ proc ::sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc ::sherdog::query {query response err {mode -verbose} args} {
+proc ::sherdog::query {query responseVar errorVar {mode -verbose} args} {
     variable SEARCH_BASE
     variable SEARCH_QUERY
     variable SEARCH_LINK
 
-    upvar $response res
-    upvar $err e
+    upvar $responseVar res $errorVar err
     set res {}
-    set e ""
+    set err ""
 
     set url [cache link $query]
     if {$url eq ""} {
@@ -135,7 +134,7 @@ proc ::sherdog::query {query response err {mode -verbose} args} {
         set url [getFirstSearchResult $searchResults $SEARCH_LINK]
         regsub {\#.*} $url "" url
         if {$url eq ""} {
-            set e "No match for '$query' in the Sherdog Fight Finder."
+            set err "No match for '$query' in the Sherdog Fight Finder."
             return false
         }
         cache link $query $url
@@ -146,7 +145,7 @@ proc ::sherdog::query {query response err {mode -verbose} args} {
         putlog "Fetching sherdog content at $url"
         set html [url::get $url]
         if {[catch {set data [parse $html $url]}]} {
-            set e "Failed to parse Sherdog content at $url for '$query' query. Notify the bot developer."
+            set err "Failed to parse Sherdog content at $url for '$query' query. Notify the bot developer."
             return false
         }
         cache data $url $data

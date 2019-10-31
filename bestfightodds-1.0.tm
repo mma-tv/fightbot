@@ -60,14 +60,12 @@ proc ::bestfightodds::parse {html} {
     return $events
 }
 
-proc ::bestfightodds::import {data error} {
+proc ::bestfightodds::import {dataVar errorVar} {
     variable URL
-    upvar $data d
-    upvar $error e
-    if {[catch {set d [parse [url::get $URL]]} err]} {
-        set e $err
+    upvar $dataVar data $errorVar err
+    if {[catch {set data [parse [url::get $URL]]} err]} {
         return false
     }
-    set e ""
+    set err ""
     return true
 }
