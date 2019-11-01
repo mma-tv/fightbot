@@ -641,7 +641,7 @@ proc announceEvent {unick host handle dest text} {
     }
     return 1
 }
-mbind {msg pub} $adminFlag {.sayevent .announceevent} ${ns}::announceEvent
+mbind {msg pub} $adminFlag {.sayevent} ${ns}::announceEvent
 
 proc listFights {unick host handle dest {text ""} {showUsage 0}} {
     if {![onPollChan $unick]} { return 0 }
