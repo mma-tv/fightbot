@@ -42,7 +42,7 @@ variable minPickDateDiff 2             ;# allow picks up to this many hours befo
 variable pollDuration    15            ;# max minutes before polling automatically ends
 variable pollInterval    120           ;# send reminders every this many seconds during polling
 variable maxResults      20            ;# max command results to show at one time
-variable backupTime      "02:22"       ;# military time of day to perform daily backup
+variable backupTime      "02:28"       ;# military time of day to perform daily backup
 variable updateTime      "03:33"       ;# military time of day to update upcoming events from web
 variable putCommand      putnow        ;# send function: putnow, putquick, putserv, puthelp
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]

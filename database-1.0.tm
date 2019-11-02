@@ -1,5 +1,10 @@
+::tcl::tm::path add [file dirname [info script]]
+
+package require log
+
 namespace eval ::database {
     namespace export loadDatabase populate bindSQL scheduleBackup
+    namespace import ::log::log
 }
 
 proc ::database::loadDatabase {db database {sqlScripts {}}} {
