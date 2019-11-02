@@ -266,7 +266,7 @@ proc ::sherdog::fightInfo {fight} {
     dict with fight {
         return [format "%s[b]%s[/b] | [b]%s[/b] | %s | %s | %s | R%s %s | %s"\
             [formatResult $result "\u258c"] [string toupper [string index $result 0]]\
-            $opponent [clock format [clock scan $date] -format {%b %d %Y}] $event\
+            $opponent [clock format [clock scan $date] -format {%m/%d/%Y}] $event\
             $method $round $time $ref]
     }
 }
