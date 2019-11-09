@@ -49,7 +49,7 @@ variable debugLogLevel   8             ;# log all output to this log level [1-8,
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.5.25"
+variable scriptVersion "1.6.0"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1157,6 +1157,8 @@ proc announceResult {unick host handle dest result} {
     if {![onPollChan $unick]} { return 0 }
 
     variable poll
+    variable chanFlag
+
     if {[getEvent $unick $host $dest event]} {
         set eventId $event(id)
         if {![info exists poll($eventId,lastpoll)]} {
@@ -1294,6 +1296,24 @@ proc announceResult {unick host handle dest result} {
                         [b][join [lsort -dictionary $newRankLeaders] "[/b], [b]"][/b]!\
                         You are now [b]#1[/b] at the top of the leaderboard rankings!\
                         Type [b].rankings[/b] to see the current standings."
+                }
+
+                if {[isMainEvent $eventName $fighter1 $fighter2]} {
+                    set bestPickers [getWinningPickers $eventId]
+                    set bestNicks [lindex $bestPickers 0]
+                    set bestWins [lindex $bestPickers 1]
+                    set bestLosses [lindex $bestPickers 2]
+                    lappend messages "[b]\[EVENT HAS ENDED\][/b] Congratulations to [b][join $bestNicks "[/b] and [b]"][/b].\
+                        With a pick record of $bestWins-$bestLosses, you are the [b]BEST FIGHT PICKERS[/b] for $eventName.\
+                        Step forward and be recognized!"
+
+                    foreach nick $bestNicks {
+                        foreach chan [channels] {
+                            if {[channel get $chan $chanFlag]} {
+                                putserv "MODE $chan +v $nick"
+                            }
+                        }
+                    }
                 }
 
                 mmsg $messages $eventName
@@ -1933,14 +1953,63 @@ proc searchSherdog {unick host handle dest text} {
 mbind {msgm pubm} - {"% .sh*"} ${ns}::searchSherdog
 bind time - "30 * * * *" ::sherdog::pruneCache
 
+proc getBestPickers {eventId} {
+    set rows [db eval { SELECT nick, pick_result, event_name FROM vw_picks \
+        WHERE pick_result IS NOT NULL AND event_id = :eventId AND vote IS NOT 0 ORDER BY user_id}]
+    if {$rows <= 0} {
+        return {}
+    }
+    set pickList {}
+    foreach {nick result event_name} $rows {
+        set pick {}
+        set nickIndex [lsearch -index 0 $pickList $nick]
+        if {$nickIndex < 0} {
+            set nickIndex [llength $pickList]
+            lappend pick $nick 0 0
+            lappend pickList $pick
+        }
+        set index [expr {$result == 1 ? 1 : 2}]
+        set value [lindex $pickList $nickIndex $index]
+        incr value
+        lset pickList $nickIndex $index $value
+    }
+    return [lsort -integer -index 1 -decreasing [lsort -integer -index 2 -decreasing $pickList]]
+}
+
+proc getWinningPickers {eventId} {
+    set winners {}
+    set pickers [getBestPickers $eventId]
+    set bestWins [lindex [lindex $pickers 0] 1]
+    set bestLosses [lindex [lindex $pickers 0] 2]
+    foreach picker $pickers {
+        if {[lindex $picker 1] == $bestWins && [lindex $picker 2] == $bestLosses} {
+            lappend winners [lindex $picker 0]
+            continue
+        }
+        break
+    }
+    return [list $winners $bestWins $bestLosses]
+}
+
+proc isMainEvent {eventName fighter1 fighter2} {
+    if {![regexp {(\S+)\s+vs\.?\s+(\S+)} $eventName m mainFighter1 mainFighter2]} {
+        return 0
+    }
+    return [expr {([lsearch -nocase -exact $fighter1 $mainFighter1] >= 0 && [lsearch -nocase -exact $fighter2 $mainFighter2] >= 0)
+               || ([lsearch -nocase -exact $fighter1 $mainFighter2] >= 0 && [lsearch -nocase -exact $fighter2 $mainFighter1] >= 0)}]
+}
+
 proc best {unick host handle dest text} {
     if {![onPollChan $unick]} { return 1 }
 
     getLimits $text trigger offset limit expr
     set evid ""
+    set event_name ""
+
     if {$expr eq ""} {
         if {[getEvent $unick $host $dest event]} {
             set evid $event(id)
+            set event_name $event(name)
         } else {
             set showUsage 1
         }
@@ -1957,32 +2026,19 @@ proc best {unick host handle dest text} {
             return 1
         }
         set evid [lindex $rows [expr {[llength $rows] - 2}]]
+        set event_name [lindex $rows [expr {[llength $rows] - 1}]]
     }
     if {[info exist showUsage]} {
         send $unick $dest "Usage: .best <eventRE>"
         return 1
     }
-    set rows [db eval { SELECT nick, pick_result, event_name FROM vw_picks \
-        WHERE pick_result IS NOT NULL AND event_id = :evid AND vote IS NOT 0 ORDER BY user_id}]
-    if {$rows<=0} {
+
+    set pickList [getBestPickers $evid]
+    if {[llength $pickList] == 0} {
         send $unick $dest "Nobody has picked for this event, or the results haven't been published yet."
         return 1
     }
-    set pickList [list]
-    foreach {nick result event_name} $rows {
-        set pick [list]
-        set nickIndex [lsearch -index 0 $pickList $nick]
-        if {$nickIndex < 0} {
-            set nickIndex [llength $pickList]
-            lappend pick $nick 0 0
-            lappend pickList $pick
-        }
-        set index [expr {$result == 1 ? 1 : 2}]
-        set value [lindex $pickList $nickIndex $index]
-        incr value
-        lset pickList $nickIndex $index $value
-    }
-    set pickList [lsort -integer -index 1 -decreasing [lsort -integer -index 2 -decreasing $pickList]]
+
     send $unick $dest "[b][u]TOP PICKERS @ $event_name[/u][/b]"
     send $unick $dest "[b]RANK  NICK        WINS  LOSSES[/b]"
     set oldWins 0
