@@ -31,7 +31,10 @@ if {[info commands putlog] eq ""} {
 }
 
 proc ::sherdog::parse {html {url ""}} {
-    # hack to clean up malformed html that breaks the parser
+    # hacks to clean up malformed html that breaks the parser
+    # fix nested unencoded quotes: "foo "bar" baz" => "foo &quot;bar&quot; baz"
+    regsub -all {(\w+="[^"=>]*?)"([^"=>]*?)"([^"=>]*?")(?=(?:\s+\w+="[^"]*")*\s*/?\s*>)} $html {\1\&quot;\2\&quot;\3} html
+    # fix duplicate chars in close tags: <br//> => <br/>
     regsub -all {(?:/\s*)+(?=/\s*>)} $html "" html
     set dom [dom parse -html $html]
     set doc [$dom documentElement]

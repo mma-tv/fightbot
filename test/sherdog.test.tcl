@@ -7,12 +7,19 @@ package require sherdog
 package require tcltest
 namespace import ::tcltest::*
 
-test sherdog::parse "should parse fighter data" -setup {
+test sherdog::parse "should parse fighter data for Ronda Rousey" -setup {
     set html [url::get "https://www.sherdog.com/fighter/Ronda-Rousey-73073"]
 } -body {
     set fighter [sherdog::parse $html]
     dict get $fighter name
 } -result "Ronda Rousey"
+
+test sherdog::parse "should parse fighter data for Robert Whittaker" -setup {
+    set html [url::get "https://www.sherdog.com/fighter/Robert-Whittaker-45132"]
+} -body {
+    set fighter [sherdog::parse $html]
+    dict get $fighter name
+} -result "Robert Whittaker"
 
 test sherdog::query "should print fighter data" -body {
     if {[sherdog::query "ronda rousey" data err]} {
