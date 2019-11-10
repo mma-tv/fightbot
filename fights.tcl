@@ -46,10 +46,11 @@ variable backupTime      "04:44"       ;# military time of day to perform daily 
 variable updateTime      "03:33"       ;# military time of day to update upcoming events from web
 variable putCommand      putnow        ;# send function: putnow, putquick, putserv, puthelp
 variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
+variable minBestPicks    5             ;# min number of picks to qualify for winning Best Picker
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.0"
+variable scriptVersion "1.6.1"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1158,6 +1159,7 @@ proc announceResult {unick host handle dest result} {
 
     variable poll
     variable chanFlag
+    variable minBestPicks
 
     if {[getEvent $unick $host $dest event]} {
         set eventId $event(id)
@@ -1299,18 +1301,24 @@ proc announceResult {unick host handle dest result} {
                 }
 
                 if {[isMainEvent $eventName $fighter1 $fighter2]} {
+                    lappend messages "[b]\[EVENT HAS ENDED\][/b]: $eventName"
+
                     set bestPickers [getWinningPickers $eventId]
                     set bestNicks [lindex $bestPickers 0]
                     set bestWins [lindex $bestPickers 1]
                     set bestLosses [lindex $bestPickers 2]
-                    lappend messages "[b]\[EVENT HAS ENDED\][/b] Congratulations to [b][join $bestNicks "[/b] and [b]"][/b].\
-                        With a pick record of $bestWins-$bestLosses, you are the [b]BEST FIGHT PICKERS[/b] for $eventName.\
-                        Step forward and be recognized!"
 
-                    foreach nick $bestNicks {
-                        foreach chan [channels] {
-                            if {[channel get $chan $chanFlag]} {
-                                putserv "MODE $chan +v $nick"
+                    if {[expr {$bestWins + $bestLosses}] >= $minBestPicks && $bestWins > 0} {
+                        lappend messages "[b]\[BEST FIGHT PICKS\][/b] Congratulations to [b][join $bestNicks "[/b], [b]"][/b].\
+                            With a pick record of $bestWins-$bestLosses,\
+                            you are the [u]best fight picker[s [llength $bestNicks]][/u] for $eventName!\
+                            Step forward and be recognized."
+
+                        foreach nick $bestNicks {
+                            foreach chan [channels] {
+                                if {[channel get $chan $chanFlag]} {
+                                    putserv "MODE $chan +v $nick"
+                                }
                             }
                         }
                     }
