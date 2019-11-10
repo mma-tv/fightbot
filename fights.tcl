@@ -50,7 +50,7 @@ variable minBestPicks    5             ;# min number of picks to qualify for win
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.1"
+variable scriptVersion "1.6.2"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -1059,20 +1059,27 @@ proc runAnnouncement {seconds} {
         set eventName $poll($key,eventName)
 
         if {$seconds > 0} {
-            array set record {}
-            foreach fighter [list $fighter1 $fighter2] {
-                set data [sherdog::cache data [sherdog::cache link $fighter]]
-                set record($fighter) [sherdog::graphicalRecord $data 10]
+            set option1 $fighter1
+            set option2 $fighter2
+
+            if {[regexp -nocase {\m(?:ufc|bellator|rizin|pfl|invicta|ksw|combate|acb|ultimate fighter|tuf)\M} $eventName]} {
+                array set record {}
+                foreach fighter [list $fighter1 $fighter2] {
+                    set data [sherdog::cache data [sherdog::cache link $fighter]]
+                    set record($fighter) [sherdog::graphicalRecord $data 10]
+                }
+                set fighters [tabulate [list\
+                    "$fighter1 | $record($fighter1)"\
+                    "$fighter2 | $record($fighter2)"\
+                ]]
+                set option1 [string trimright [string map {{ | } { }} [lindex $fighters 0]]]
+                set option2 [string trimright [string map {{ | } { }} [lindex $fighters 1]]]
             }
-            set fighters [tabulate [list\
-                "$fighter1 | $record($fighter1)"\
-                "$fighter2 | $record($fighter2)"\
-            ]]
 
             mmsg [list\
                 "[b]$fighter1[/b] vs. [b]$fighter2[/b]"\
-                "!1 -> [string trimright [string map {{ | } { }} [lindex $fighters 0]]]"\
-                "!2 -> [string trimright [string map {{ | } { }} [lindex $fighters 1]]]"\
+                "!1 -> $option1"\
+                "!2 -> $option2"\
                 "Voting !1~ or !2~ will not affect your stats."\
             ] $eventName
             set pollTimer [utimer $pollInterval [list ${ns}::runAnnouncement [expr {$seconds - $pollInterval}]]]
