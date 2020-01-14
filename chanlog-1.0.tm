@@ -1,5 +1,7 @@
 ::tcl::tm::path add [file dirname [info script]]
 
+package require database
+
 namespace eval ::chanlog {}
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
@@ -74,14 +76,8 @@ variable ::chanlog::v::cteList [dict create cteInput {
 }]
 
 proc ::chanlog::init {{database ""}} {
-  load "[pwd]/tclsqlite3.so" "tclsqlite3"
-  sqlite3 ::chanlog::db [expr {$database eq "" ? $v::database : $database}]
-  db function REGEXP regexpSQL
-  if {[catch {set fd [open $v::dbSetupScript r]} err]} {
-    return -code error "*** Failed to open SQL script '$script': $err"
-  }
-  catch {db eval [read $fd]}
-  catch {close $fd}
+  set dbFile [expr {$database eq "" ? $v::database : $database}]
+  ::database::loadDatabase ::chanlog::db $dbFile $v::dbSetupScript
 }
 
 proc ::chanlog::WITH {args} {
@@ -169,10 +165,3 @@ proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   }
 }
 bind pubm - * ::chanlog::logChannelMessage
-
-proc ::chanlog::regexpSQL {expr text} {
-  if {[catch {set ret [regexp -nocase -- $expr $text]}]} {
-    return 0 ;# invalid expression
-  }
-  return $ret
-}
