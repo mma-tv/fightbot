@@ -35,13 +35,6 @@ proc cleanup {} {
   catch {exec rm -f log.test.db}
 }
 
-proc dbputs {} {
-  foreach {id date flag nick message} [::chanlog::query [join $argv ""]] {
-    set dt [clock format [clock scan $date] -format "%m/%d/%y %H:%M:%S"]
-    puts [format {=%-4s [%s] <%s%s> %s} $id $dt $flag $nick $message]
-  }
-}
-
 proc pluck {keys list} {
   set ret {}
   foreach {key value} $list {
