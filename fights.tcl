@@ -26,6 +26,7 @@ package require formatter
 package require ctrlCodes
 package require sherdog
 package require bestfightodds
+package require chanlog
 
 namespace eval ::fights {
 
@@ -85,6 +86,8 @@ proc init {} {
         bindSQL "sqlfights" ${ns}::db
         scheduleBackup ${ns}::db $database $backupTime $debugLogLevel
     }
+
+    ::chanlog::init
     return 0
 }
 

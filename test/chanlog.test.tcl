@@ -35,11 +35,11 @@ proc cleanup {} {
   catch {exec rm -f log.test.db}
 }
 
-proc pluck {keys list} {
+proc pluck {keys list {cols {id date flag nick message}}} {
   set ret {}
-  foreach {key value} $list {
-    if {[lsearch $keys $key] >= 0} {
-      lappend ret $value
+  foreach $cols $list {
+    foreach key $keys {
+      lappend ret [set $key]
     }
   }
   return $ret

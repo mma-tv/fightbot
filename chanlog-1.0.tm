@@ -1,6 +1,8 @@
 ::tcl::tm::path add [file dirname [info script]]
 
+package require irc
 package require database
+package require log
 
 namespace eval ::chanlog {}
 namespace eval ::chanlog::v {
@@ -9,6 +11,24 @@ namespace eval ::chanlog::v {
   variable excludedNicks "^(?:cnr|k1|k-1)$"
   variable defaultLimit 10 ;# max results
   variable defaultSortOrder "-" ;# -(desc), +(asc), =(best match)
+}
+
+variable ::chanlog::v::usage {
+  {Usage: .log[limit],[+-linesOfContext],[nickFilter],[-+=] [query]}
+  { }
+  {.log5,-3+4,makk|mbp conor sucks}
+  {* Fetch at most 5 log messages that include "conor" and "sucks",}
+  {  with 3 lines of context before and 4 lines of context after,}
+  {  from nicknames matching the regular expression "makk|mbp".}
+  { }
+  {.log =12345 => Fetch the log message with id 12345 (brackets required)}
+  {.log12 => Fetch last 12 log entries}
+  {.log,+ ufc}
+  {* Find messages that include "ufc" in chronological order}
+  {.log,- ufc}
+  {* Same as above except in reverse chronological order}
+  {.log,= ufc fight pass}
+  {* Find messages that best match "ufc fight pass"}
 }
 
 variable ::chanlog::v::cteList [dict create cteInput {
@@ -148,10 +168,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}}} {
     set result [db eval $sql]
   }
 
-  # return dictionary of query results: {id <nick> date <date> ...}
-  set keys [join [lrepeat [expr {[llength $result] / [llength $fields]}] $fields]]
-  set ret [join [lmap key $keys value $result {list $key $value}]]
-  return $ret
+  return $result
 }
 
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
@@ -164,4 +181,31 @@ proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
     putlog "::chanlog::logChannelMessage => Failed to log channel message: $::errorInfo"
   }
 }
-bind pubm - * ::chanlog::logChannelMessage
+::irc::mbind pubm - * ::chanlog::logChannelMessage
+
+proc ::chanlog::searchChanLog {unick host handle dest text} {
+  set ret [::log::logStackable $unick $host $handle $dest $text]
+  set cmd [lindex [split $text] 0]
+  set query [string trim [join [lrange [split $text] 1 end]]]
+
+  if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
+    foreach line $v::usage {
+      send $unick $dest $line
+    }
+  } elseif {[string match ..* $cmd]} { ;# verbose output
+    set fields {id date flag nick userhost handle message}
+    foreach $fields [::chanlog::query $text $fields] {
+      set text [format {=%d [%s] (%s) <%s%s!%s> %s} $id $date $handle $flag $nick $userhost $message]
+      send $unick $dest $text
+    }
+  } else {
+    foreach {id date flag nick message} [::chanlog::query $text] {
+      set text [format {=%d [%s] <%s%s> %s} $id $date $flag $nick $message]
+      send $unick $dest $text
+    }
+  }
+
+  return $ret
+}
+::irc::mbind {msgm pubm} n {"% .log*"} ::chanlog::searchChanLog
+::irc::mbind {msgm pubm} n {"% ..log*"} ::chanlog::searchChanLog
