@@ -2,13 +2,15 @@ package require log
 package require formatter
 
 namespace eval ::irc {
-    namespace export put putMessage putNotice putAction mbind
+    namespace export put putMessage putNotice putAction msg send msend mbind
     namespace import ::log::log ::formatter::s
 
+    variable putCommand putnow  ;# send function: putnow, putquick, putserv, puthelp
+    variable debugLogLevel   8  ;# log all output to this log level [1-8, 0 = disabled]
     variable maxMessageLen 510
-    variable maxLineWrap   5  ;# max lines to wrap when text is too long
-    variable floodExempt   1  ;# set to 1 if the bot is exempt from flood limits
-    variable floodSupport  0
+    variable maxLineWrap     5  ;# max lines to wrap when text is too long
+    variable floodExempt     1  ;# set to 1 if the bot is exempt from flood limits
+    variable floodSupport    0
 }
 
 proc ::irc::initCapabilities {from keyword text} {
@@ -25,13 +27,6 @@ proc ::irc::capabilities {from keyword text} {
     return 0
 }
 bind raw - 005 ::irc::capabilities
-
-if {[catch {package require eggdrop 1.6.20}]} {
-    proc ::putnow {text args} {
-        append text "\r\n"
-        return [putdccraw 0 [string length $text] $text]
-    }
-}
 
 proc ::irc::put {text {queue putquick} {loglevel 0} {prefix ""} {suffix ""} {ellipsis "..."}} {
     global botname
@@ -93,6 +88,32 @@ proc ::irc::putNotice {unick dest text {queue putquick} {loglevel 0}} {
 
 proc ::irc::putAction {unick dest text {queue putquick} {loglevel 0}} {
     return [put $text $queue $loglevel "PRIVMSG $unick :\001ACTION found " "\001"]
+}
+
+proc ::irc::msg {target text} {
+    variable putCommand
+    variable debugLogLevel
+    return [putMessage $target $target $text $putCommand $debugLogLevel]
+}
+
+proc ::irc::send {unick dest text} {
+    variable putCommand
+    variable debugLogLevel
+    if {$dest ne ""} {
+        if {$unick eq $dest} {
+            set put putMessage
+        } else {
+            set put putNotice
+        }
+        return [$put $unick $dest $text $putCommand $debugLogLevel]
+    }
+    return
+}
+
+proc ::irc::msend {unick dest lines} {
+    foreach line $lines {
+        send $unick $dest $line
+    }
 }
 
 proc ::irc::redirect {handler unick host handle text} {

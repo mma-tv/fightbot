@@ -45,8 +45,6 @@ variable pollInterval    120           ;# send reminders every this many seconds
 variable maxResults      20            ;# max command results to show at one time
 variable backupTime      "04:44"       ;# military time of day to perform daily backup
 variable updateTime      "03:33"       ;# military time of day to update upcoming events from web
-variable putCommand      putnow        ;# send function: putnow, putquick, putserv, puthelp
-variable debugLogLevel   8             ;# log all output to this log level [1-8, 0 = disabled]
 variable minBestPicks    5             ;# min number of picks to qualify for winning Best Picker
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
@@ -68,7 +66,6 @@ proc init {} {
     variable database
     variable sqlScript
     variable backupTime
-    variable debugLogLevel
 
     endPoll
 
@@ -84,7 +81,7 @@ proc init {} {
             return -code error "*** Database integrity test failed: $error"
         }
         bindSQL "sqlfights" ${ns}::db
-        scheduleBackup ${ns}::db $database $backupTime $debugLogLevel
+        scheduleBackup ${ns}::db $database $backupTime $::irc::debugLogLevel
     }
 
     ::chanlog::init
@@ -99,32 +96,6 @@ proc onPollChan {unick} {
         }
     }
     return 0
-}
-
-proc send {unick dest text} {
-    variable putCommand
-    variable debugLogLevel
-    if {$dest ne ""} {
-        if {$unick == $dest} {
-            set put putMessage
-        } else {
-            set put putNotice
-        }
-        return [$put $unick $dest $text $putCommand $debugLogLevel]
-    }
-    return
-}
-
-proc msend {unick dest lines} {
-    foreach line $lines {
-        send $unick $dest $line
-    }
-}
-
-proc msg {target text} {
-    variable putCommand
-    variable debugLogLevel
-    return [putMessage $target $target $text $putCommand $debugLogLevel]
 }
 
 proc mmsg {messages {title ""}} {

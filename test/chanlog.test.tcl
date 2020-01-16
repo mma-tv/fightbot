@@ -13,20 +13,20 @@ proc setup {} {
   ::chanlog::init "log.test.db"
   ::chanlog::db eval {
     INSERT INTO log (date, flag, nick, userhost, handle, message) VALUES
-      ('2018-10-22 01:02:03', '+', 'makk', '~k1@foo.bar.com', '*', 'first message'),
-      ('2019-01-13 01:02:03', '', 'Rect', '~k1@foo.bar.com', '*', 'second message'),
-      ('2019-02-22 01:02:03', '@', 'mbp', '~k1@foo.bar.com', '*', 'how is this happening'),
-      ('2019-03-22 01:02:03', '', 'makk', '~k1@foo.bar.com', '*', 'unpossible'),
-      ('2019-04-22 01:02:03', '', 'john', '~k1@foo.bar.com', '*', 'the only way to ufc'),
-      ('2019-05-22 01:02:03', '', 'jack', '~k1@foo.bar.com', '*', 'conor sucks'),
-      ('2019-06-22 01:02:03', '', 'jack', '~k1@foo.bar.com', '*', 'what did you say?'),
-      ('2019-07-22 01:02:03', '+', 'makk', '~k1@foo.bar.com', '*', 'not this way'),
-      ('2019-08-22 01:02:03', '+', 'makk', '~k1@foo.bar.com', '*', 'cool not'),
-      ('2019-09-22 01:02:03', '@', 'mbp', '~k1@foo.bar.com', '*', 'dun be dum'),
-      ('2019-10-22 01:02:03', '', 'ganj', '~k1@foo.bar.com', '*', 'if you say so'),
-      ('2019-10-23 01:02:03', '', 'paul', '~k1@foo.bar.com', '*', 'that is cool'),
-      ('2019-10-24 01:02:03', '+', 'makk', '~k1@foo.bar.com', '*', 'penultimate message'),
-      ('2019-10-25 01:02:03', '+', 'makk', '~k1@foo.bar.com', '*', 'last message')      
+      ('2018-10-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'first message'),
+      ('2019-01-13 01:02:03', '', 'Rect', 'k1@foo.bar.com', '*', 'second message'),
+      ('2019-02-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'how is this happening'),
+      ('2019-03-22 01:02:03', '', 'makk', 'k1@foo.bar.com', '*', 'unpossible'),
+      ('2019-04-22 01:02:03', '', 'john', 'k1@foo.bar.com', '*', 'the only way to ufc'),
+      ('2019-05-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'conor sucks'),
+      ('2019-06-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'what did you say?'),
+      ('2019-07-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'not this way'),
+      ('2019-08-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'cool not'),
+      ('2019-09-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'dun be dum'),
+      ('2019-10-22 01:02:03', '', 'ganj', 'k1@foo.bar.com', '*', 'if you say so'),
+      ('2019-10-23 01:02:03', '', 'paul', 'k1@foo.bar.com', '*', 'that is cool'),
+      ('2019-10-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'penultimate message'),
+      ('2019-10-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'last message')      
   }
 }
 
@@ -45,17 +45,22 @@ proc pluck {keys list {cols {id date flag nick message}}} {
   return $ret
 }
 
+proc globNoCase {expected actual} {
+  return [string match -nocase $expected $actual]
+}
+customMatch globNoCase globNoCase
+
 test chanlog::init "should create empty database" -setup setup -body {
   file exists "log.test.db"
 } -result 1
 
 test chanlog::logChannelMessage "should log channel messages" -body {
-  ::chanlog::logChannelMessage "makk" "~makk@foo.bar.com" "*" "#mma-tv" "unbelievably awesome"
+  ::chanlog::logChannelMessage "makk" "k1@foo.bar.com" "*" "#mma-tv" "unbelievably awesome"
   ::chanlog::db eval {
     SELECT nick, userhost, handle, message FROM log ORDER BY id DESC LIMIT 1
   } {
     return [expr {
-      $nick eq "makk" && $userhost eq "~makk@foo.bar.com" &&
+      $nick eq "makk" && $userhost eq "k1@foo.bar.com" &&
       $handle eq "*" && $message eq "unbelievably awesome"
     }]
   }
@@ -75,11 +80,11 @@ test chanlog::query "should support nick filtering" -body {
 } -result {mbp mbp}
 
 test chanlog::query "should allow searching in chronological order" -body {
-  pluck id [::chanlog::query ".log2,+"]
+  pluck id [::chanlog::query ".log+2"]
 } -result {1 2}
 
 test chanlog::query "should allow searching in reverse chronological order" -body {
-  pluck message [::chanlog::query ".log1,-"]
+  pluck message [::chanlog::query ".log-1"]
 } -result {{last message}}
 
 test chanlog::query "should query in reverse chronological order by default" -body {
@@ -93,6 +98,19 @@ test chanlog::query "should support id matching" -body {
 test chanlog::query "should support context lines" -body {
   pluck id [::chanlog::query ".log,-1+3 unpossible"]
 } -result {3 4 5 6 7}
+
+test chanlog::query "should support verbose mode" -body {
+  set fields {id date flag nick userhost handle message}
+  llength [pluck $fields [::chanlog::query "..log ufc" $fields] $fields]
+} -result 7
+
+test chanlog::searchChanLog "should print verbose mode" -body {
+  ::chanlog::searchChanLog * * * * "..log message"
+} -result 1 -match glob -output {PRIVMSG * :=1 *<+makk!k1@foo.bar.com>*=2 *<Rect!k1@foo.bar.com>*}
+
+test chanlog::searchChanLog "should return usage help when no args" -body {
+  ::chanlog::searchChanLog * * * * ".log"
+} -result 1 -match globNoCase -output {*usage*}
 
 cleanup
 cleanupTests

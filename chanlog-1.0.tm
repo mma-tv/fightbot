@@ -1,34 +1,34 @@
 ::tcl::tm::path add [file dirname [info script]]
 
 package require irc
-package require database
 package require log
+package require database
 
-namespace eval ::chanlog {}
+namespace eval ::chanlog {
+  namespace import ::irc::send ::irc::msend ::database::loadDatabase
+}
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
   variable dbSetupScript "chanlog.sql"
   variable excludedNicks "^(?:cnr|k1|k-1)$"
-  variable defaultLimit 10 ;# max results
+  variable maxLimit 100    ;# max search results
+  variable defaultLimit 10 ;# default number of search results
   variable defaultSortOrder "-" ;# -(desc), +(asc), =(best match)
 }
 
 variable ::chanlog::v::usage {
-  {Usage: .log[limit],[+-linesOfContext],[nickFilter],[-+=] [query]}
-  { }
+  {Usage: .[.]log[-+=][limit],[+-contextLines],[nickFilter] [query]}
+  {.log =12345 => Find the log message with id 12345}
+  {..log => Use two leading dots for verbose output (includes userhosts)}
+  {.log12 (or .log-12) => Fetch last 12 log entries}
+  {.log+2 ufc => Find the oldest 2 messages that include "ufc"}
+  {.log-2 ufc => Find the newest 2 messages that include "ufc"}
+  {.log=2 ufc fight => Find the 2 messages that best match "ufc fight"}
   {.log5,-3+4,makk|mbp conor sucks}
-  {* Fetch at most 5 log messages that include "conor" and "sucks",}
+  {* Find at most 5 log messages that include "conor" and "sucks",}
   {  with 3 lines of context before and 4 lines of context after,}
   {  from nicknames matching the regular expression "makk|mbp".}
-  { }
-  {.log =12345 => Fetch the log message with id 12345 (brackets required)}
-  {.log12 => Fetch last 12 log entries}
-  {.log,+ ufc}
-  {* Find messages that include "ufc" in chronological order}
-  {.log,- ufc}
-  {* Same as above except in reverse chronological order}
-  {.log,= ufc fight pass}
-  {* Find messages that best match "ufc fight pass"}
+  {End of usage.}
 }
 
 variable ::chanlog::v::cteList [dict create cteInput {
@@ -97,7 +97,7 @@ variable ::chanlog::v::cteList [dict create cteInput {
 
 proc ::chanlog::init {{database ""}} {
   set dbFile [expr {$database eq "" ? $v::database : $database}]
-  ::database::loadDatabase ::chanlog::db $dbFile $v::dbSetupScript
+  loadDatabase ::chanlog::db $dbFile $v::dbSetupScript
 }
 
 proc ::chanlog::WITH {args} {
@@ -118,16 +118,15 @@ proc ::chanlog::query {text {fields {id date flag nick message}}} {
   set contextLines ""
   set includedNicks ""
   set excludedNicks $v::excludedNicks
-  set sortOrder $v::defaultSortOrder
 
-  set args [split $cmd ","]
-  regexp {\d+$} [lindex $args 0] maxResults
-  set maxResults [expr {min(max(0, $maxResults), 100)}]
+  set args [split $cmd ,]
+  regexp {([-+=]?)((?:\d+)?)$} [lindex $args 0] m sortOrder maxResults
+  set sortOrder [expr {$sortOrder eq "" ? $v::defaultSortOrder : $sortOrder}]
+  set maxResults [expr {min($maxResults eq "" ? $v::defaultLimit : $maxResults, $v::maxLimit)}]
 
   foreach arg [lrange $args 1 end] {
     switch -regexp -- $arg {
       {^(?:-\d+(?:\+\d+)?|\+\d+(?:-\d+)?)$} { set contextLines $arg }
-      {^[-+=]$} { set sortOrder $arg }
       {\w} { set includedNicks $arg }
     }
   }
@@ -139,9 +138,9 @@ proc ::chanlog::query {text {fields {id date flag nick message}}} {
     set sql "[WITH cteInput cteNicks $cteRecords] SELECT $cols FROM $cteRecords ORDER BY id"
   } else {
     switch -- $sortOrder {
-      {+} { set cteSortedMatches "cteOldestMatches" }
       {-} { set cteSortedMatches "cteNewestMatches" }
-      default { set cteSortedMatches "cteBestMatches" }
+      {+} { set cteSortedMatches "cteOldestMatches" }
+      {=} { set cteSortedMatches "cteBestMatches" }
     }
     set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
       SELECT $cols FROM $cteSortedMatches ORDER BY id"
@@ -189,17 +188,15 @@ proc ::chanlog::searchChanLog {unick host handle dest text} {
   set query [string trim [join [lrange [split $text] 1 end]]]
 
   if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
-    foreach line $v::usage {
-      send $unick $dest $line
-    }
+    msend $unick $dest $v::usage
   } elseif {[string match ..* $cmd]} { ;# verbose output
     set fields {id date flag nick userhost handle message}
-    foreach $fields [::chanlog::query $text $fields] {
+    foreach $fields [query $text $fields] {
       set text [format {=%d [%s] (%s) <%s%s!%s> %s} $id $date $handle $flag $nick $userhost $message]
       send $unick $dest $text
     }
   } else {
-    foreach {id date flag nick message} [::chanlog::query $text] {
+    foreach {id date flag nick message} [query $text] {
       set text [format {=%d [%s] <%s%s> %s} $id $date $flag $nick $message]
       send $unick $dest $text
     }
@@ -209,3 +206,4 @@ proc ::chanlog::searchChanLog {unick host handle dest text} {
 }
 ::irc::mbind {msgm pubm} n {"% .log*"} ::chanlog::searchChanLog
 ::irc::mbind {msgm pubm} n {"% ..log*"} ::chanlog::searchChanLog
+return
