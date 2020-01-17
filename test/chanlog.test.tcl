@@ -112,5 +112,18 @@ test chanlog::searchChanLog "should return usage help when no args" -body {
   ::chanlog::searchChanLog * * * * ".log"
 } -result 1 -match globNoCase -output {*usage*}
 
+test chanlog::query "should support boolean NOT queries with -term" -body {
+  llength [pluck message [::chanlog::query ".log message -second"]]
+} -result 3
+
+test chanlog::query "should support boolean OR queries" -body {
+  llength [pluck message [::chanlog::query ".log conor OR ufc"]]
+} -result 2
+
+test chanlog::query "should sanitize queries against syntax errors" -body {
+  set ret 0
+  incr ret [llength [pluck message [::chanlog::query {.log ufc NOT NOT foo +a#a-blah}]]]
+} -result 0
+
 cleanup
 cleanupTests
