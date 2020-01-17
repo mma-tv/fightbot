@@ -108,6 +108,18 @@ proc ::chanlog::WITH {args} {
   return "WITH [join $ctes ,]"
 }
 
+proc ::chanlog::sanitizeQuery {text} {
+  regsub -all {(\w\**)\s+OR\s+(\+*\w)} $text "\\1 \uE000 \\2" text
+  regsub -all {\m(AND|OR|NOT|NEAR)\M} $text "\uE001\\1\uE001" text
+  regsub -all {[^-*\w\x5B-\uFFFF]+} $text " " text
+  regsub -all {(\w)\*+(?=\s|$)} $text "\\1\uE002" text
+  regsub -all {(?:^|\s)-(\w)} $text " \uE003 \\1" text
+  regsub -all {[-* ]+} $text " " text
+  set text [string map {\uE000 OR \uE001 \" \uE002 * \uE003 NOT} $text]
+  regsub {^\s*(?:NOT\s+)+} $text "" text
+  return [string trim $text]
+}
+
 proc ::chanlog::query {text {fields {id date flag nick message}}} {
   set cmd [lindex [split $text] 0]
   set query [string trim [join [lrange [split $text] 1 end]]]
@@ -133,17 +145,22 @@ proc ::chanlog::query {text {fields {id date flag nick message}}} {
 
   if {[regexp {^=(\d+)$} $query m id]} {
     set sql "SELECT $cols FROM log WHERE id = :id"
-  } elseif {$query eq ""} {
-    set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
-    set sql "[WITH cteInput cteNicks $cteRecords] SELECT $cols FROM $cteRecords ORDER BY id"
   } else {
-    switch -- $sortOrder {
-      {-} { set cteSortedMatches "cteNewestMatches" }
-      {+} { set cteSortedMatches "cteOldestMatches" }
-      {=} { set cteSortedMatches "cteBestMatches" }
+    set query [sanitizeQuery $query]
+
+    if {$query eq ""} {
+      set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
+      set sql "[WITH cteInput cteNicks $cteRecords]\
+        SELECT $cols FROM $cteRecords ORDER BY id"
+    } else {
+      switch -- $sortOrder {
+        {-} { set cteSortedMatches "cteNewestMatches" }
+        {+} { set cteSortedMatches "cteOldestMatches" }
+        {=} { set cteSortedMatches "cteBestMatches" }
+      }
+      set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
+        SELECT $cols FROM $cteSortedMatches ORDER BY id"
     }
-    set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
-      SELECT $cols FROM $cteSortedMatches ORDER BY id"
   }
 
   set result [db eval $sql]
