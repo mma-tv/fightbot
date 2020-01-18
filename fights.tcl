@@ -27,6 +27,7 @@ package require ctrlCodes
 package require sherdog
 package require bestfightodds
 package require chanlog
+package require tags
 
 namespace eval ::fights {
 
@@ -85,6 +86,7 @@ proc init {} {
     }
 
     ::chanlog::init
+    ::tags::init
     return 0
 }
 
