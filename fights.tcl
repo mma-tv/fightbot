@@ -738,10 +738,9 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                     set odds2 [format " <[expr {$odds2 == 0 ? "EV" : "%+d"}]>" $odds2]
                 }
 
-                set isMainEvent [expr {$mainEvent == $fightId}]
-                set indexFormat [expr {$isMainEvent ? "[u]$numFormat[/u]" : $numFormat}]
-                set resultLine [format "[b]$indexFormat[/b]. %s%s%s vs. %s%s%s%s"\
-                    $index $fighter1 $odds1 $result1 $fighter2 $odds2 $result2 $other]
+                set sep [expr {$mainEvent == $fightId ? "[u].[/u]" : "."}]
+                set resultLine [format "[b]$numFormat[/b]%s %s%s%s vs. %s%s%s%s"\
+                    $index $sep $fighter1 $odds1 $result1 $fighter2 $odds2 $result2 $other]
                 if {$locked} {
                     set message ""
                     if {$resultId == -1} {
