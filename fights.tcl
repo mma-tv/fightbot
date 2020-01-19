@@ -9,7 +9,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 31, 2019
+#  Last Update: Dec 07, 2019
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -50,7 +50,7 @@ variable minBestPicks    5             ;# min number of picks to qualify for win
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.2"
+variable scriptVersion "1.6.3"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -544,7 +544,7 @@ proc mergeEvents {unick host handle dest text} {
         } else {
             catch {db eval {DELETE FROM events WHERE id = :newEvent(id)}}
             catch {db eval {UPDATE events SET name = :newEvent(name) WHERE id = :oldEvent(id)}}
-            importFights $unick $host $handle $dest ""
+            importFights
             send $unick $dest "Events are now merged into '[b]$newEvent(name)[/b]'."
         }
     } else {
@@ -1318,7 +1318,7 @@ proc announceResult {unick host handle dest result} {
                     if {[expr {$bestWins + $bestLosses}] >= $minBestPicks && $bestWins > 0} {
                         lappend messages "[b]\[BEST FIGHT PICKS\][/b] Congratulations to [b][join $bestNicks "[/b], [b]"][/b].\
                             With a pick record of $bestWins-$bestLosses,\
-                            you are the [u]best fight picker[s [llength $bestNicks]][/u] for $eventName!\
+                            you were the [u]best fight picker[s [llength $bestNicks]][/u] for $eventName!\
                             Step forward and be recognized."
 
                         foreach nick $bestNicks {
