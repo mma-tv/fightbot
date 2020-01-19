@@ -9,7 +9,7 @@
 # Contributors: wims@EFnet
 #
 # Release Date: May 14, 2010
-#  Last Update: Oct 31, 2019
+#  Last Update: Jan 19, 2020
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -49,7 +49,7 @@ variable minBestPicks    5             ;# min number of picks to qualify for win
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.2"
+variable scriptVersion "1.6.4"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -518,7 +518,7 @@ proc mergeEvents {unick host handle dest text} {
         } else {
             catch {db eval {DELETE FROM events WHERE id = :newEvent(id)}}
             catch {db eval {UPDATE events SET name = :newEvent(name) WHERE id = :oldEvent(id)}}
-            importFights $unick $host $handle $dest ""
+            importFights
             send $unick $dest "Events are now merged into '[b]$newEvent(name)[/b]'."
         }
     } else {
@@ -527,6 +527,37 @@ proc mergeEvents {unick host handle dest text} {
     return 1
 }
 mbind {msg pub} $adminFlag {.mergeevent .mergeevents .mergevent .mergevents} ${ns}::mergeEvents
+
+proc setMainEvent {unick host handle dest index} {
+  if {![onPollChan $unick]} { return 0 }
+
+  set index [string trim $index]
+  if {![string is digit -strict $index]} {
+    send $unick $dest "Usage: .setmainevent <index>"
+  } elseif {[getEvent $unick $host $dest event] && [getFight $unick $host $dest fight $index]} {
+    if {[db eval {UPDATE events SET main_event = :fight(id) WHERE id = :event(id)}]} {
+      send $unick $dest "Main event set to $fight(fighter1) vs. $fight(fighter2)."
+      listFights $unick $host $handle $dest
+    } else {
+      send $unick $dest "Failed to set main event for $event(name)."
+    }
+  }
+  return 1
+}
+mbind {msg pub} $adminFlag {.setmainevent} ${ns}::setMainEvent
+
+proc unsetMainEvent {unick host handle dest text} {
+  if {![onPollChan $unick]} { return 0 }
+
+  if {[getEvent $unick $host $dest event]} {
+    if {[db eval {UPDATE events SET main_event = NULL WHERE id = :event(id)}]} {
+      send $unick $dest "Unset main event for $event(name)."
+      listFights $unick $host $handle $dest
+    }
+  }
+  return 1
+}
+mbind {msg pub} $adminFlag {.unsetmainevent} ${ns}::unsetMainEvent
 
 proc endEvent {unick host handle dest text} {
     if {[getEvent $unick $host $dest event]} {
@@ -636,11 +667,12 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
         }]
         set totalFights [expr {[llength $rows] / 10}]
         if {$totalFights} {
-
+            set mainEvent [getMainEvent $event(id)]
             set numFormat [getNumFormat $totalFights]
             set lines {}
             set totalPicks 0
             set index 0
+
             foreach {fightId fighter1 fighter2 odds1 odds2 result notes locked pick vote} $rows {
                 incr index
                 setFight $unick $host $event(index) $index $fightId $fighter1 $fighter2
@@ -680,8 +712,9 @@ proc listFights {unick host handle dest {text ""} {showUsage 0}} {
                     set odds2 [format " <[expr {$odds2 == 0 ? "EV" : "%+d"}]>" $odds2]
                 }
 
-                set resultLine [format "[b]$numFormat[/b]. %s%s%s vs. %s%s%s%s"\
-                    $index $fighter1 $odds1 $result1 $fighter2 $odds2 $result2 $other]
+                set sep [expr {$mainEvent == $fightId ? "[u].[/u]" : "."}]
+                set resultLine [format "[b]$numFormat[/b]%s %s%s%s vs. %s%s%s%s"\
+                    $index $sep $fighter1 $odds1 $result1 $fighter2 $odds2 $result2 $other]
                 if {$locked} {
                     set message ""
                     if {$resultId == -1} {
@@ -1281,7 +1314,7 @@ proc announceResult {unick host handle dest result} {
                         Type [b].rankings[/b] to see the current standings."
                 }
 
-                if {[isMainEvent $eventName $fighter1 $fighter2]} {
+                if {[isMainEvent $eventId $fightId $eventName $fighter1 $fighter2]} {
                     lappend messages "[b]\[EVENT HAS ENDED\][/b]: $eventName"
 
                     set bestPickers [getWinningPickers $eventId]
@@ -1980,7 +2013,15 @@ proc getWinningPickers {eventId} {
     return [list $winners $bestWins $bestLosses]
 }
 
-proc isMainEvent {eventName fighter1 fighter2} {
+proc getMainEvent {eventId} {
+  return [db onecolumn {SELECT main_event FROM events WHERE id = :eventId}]
+}
+
+proc isMainEvent {eventId fightId eventName fighter1 fighter2} {
+    set mainEvent [getMainEvent $eventId]
+    if {$mainEvent ne ""} {
+        return [expr {$mainEvent == $fightId}]
+    }
     if {![regexp {(\S+)\s+vs\.?\s+(\S+)} $eventName m mainFighter1 mainFighter2]} {
         return 0
     }
@@ -2087,6 +2128,8 @@ proc help {unick host handle dest text} {
         @ {.delevent <index> ....................................... Delete fight event at specified index}
         @ {.renameevent <index> <newEventName> ..................... Rename event at specified index}
         @ {.mergeevents <oldEventIndex> <newEventIndex> ............ Merge events (new event is deleted; old one is renamed)}
+        @ {.setmainevent <index> ................................... Set fight index as the main event}
+        @ {.unsetmainevent ......................................... Unset main event}
         @ {.endevent ............................................... Remove event from upcoming events list}
         - {.findevent[offset[,limit]] <eventRE> .................... Find an event matching the given regex}
         - {.notes [id] ............................................. Show notes for selected or specified event}
