@@ -14,14 +14,9 @@ foreach cmd {
       unixtime { proc ::$cmd {} { return [clock seconds] } }
       putlog* - putcmdlog { proc ::$cmd {args} {} }
       put* { proc ::$cmd {args} { puts [join $args] } }
-      isop - isvoice {
-        proc ::$cmd {nick args} {
-          return [string match "*-$cmd" $nick]
-        }
-      }
-      matchattr {
-        proc ::$cmd {handle args} {
-          return [string match "*-matches" $handle]
+      matchattr - isop - isvoice {
+        proc ::$cmd {u args} {
+          return [string match "*[namespace tail [lindex [info level 0] 0]]" $u]
         }
       }
       default { proc ::$cmd {args} {} }

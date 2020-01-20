@@ -66,7 +66,7 @@ test tags::removeTag "should NOT remove tags from non-matching hosts" -body {
 } -result 1 -match globNoCase -output {*permission*}
 
 test tags::removeTag "should remove tags from non-matching hosts if bot owner" -body {
-  ::tags::removeTag makk non@matching.host.com makk-matches * {.-wut2}
+  ::tags::removeTag makk non@matching.host.com makk-matchattr * {.-wut2}
   ::tags::db exists {SELECT 1 FROM tags WHERE tag = 'wut2'}
 } -result 0 -match globNoCase -output {*deleted*}
 
