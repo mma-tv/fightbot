@@ -221,6 +221,6 @@ proc ::chanlog::searchChanLog {unick host handle dest text} {
 
   return $ret
 }
-::irc::mbind {msgm pubm} n {"% .log*"} ::chanlog::searchChanLog
-::irc::mbind {msgm pubm} n {"% ..log*"} ::chanlog::searchChanLog
+::irc::mbind {msgm pubm} - {"% .log*"} ::chanlog::searchChanLog
+::irc::mbind {msgm pubm} - {"% ..log*"} ::chanlog::searchChanLog
 return
