@@ -6,7 +6,7 @@ foreach var {botnick botname} {
 
 foreach cmd {
   bind unixtime putlog putloglev putcmdlog putdcc
-  putserv puthelp putquick putnow isop isvoice
+  putserv puthelp putquick putnow isop isvoice matchattr
 } {
   if {[info commands $cmd] eq ""} {
     switch -glob -- $cmd {
@@ -14,7 +14,16 @@ foreach cmd {
       unixtime { proc ::$cmd {} { return [clock seconds] } }
       putlog* - putcmdlog { proc ::$cmd {args} {} }
       put* { proc ::$cmd {args} { puts [join $args] } }
-      isop - isvoice { proc ::$cmd {args} { return [expr {rand() < .5 ? 1 : 0}] } }
+      isop - isvoice {
+        proc ::$cmd {nick args} {
+          return [string match "*-$cmd" $nick]
+        }
+      }
+      matchattr {
+        proc ::$cmd {handle args} {
+          return [string match "*-matches" $handle]
+        }
+      }
       default { proc ::$cmd {args} {} }
     }
   }
