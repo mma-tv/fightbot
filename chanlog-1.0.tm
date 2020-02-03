@@ -50,16 +50,19 @@ variable ::chanlog::v::cteList [dict create cteInput {
 } cteOldestRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
+    WHERE NOT ignored
     ORDER BY id ASC
     LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteNewestRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
+    WHERE NOT ignored
     ORDER BY id DESC
     LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
+    WHERE NOT ignored
 } cteMatches {
   SELECT id, rank
     FROM log_fts
@@ -234,9 +237,10 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
   set flag [expr {[isop $nick $channel] ? "@" : ([isvoice $nick $channel] ? "+" : "")}]
+  set ignored [regexp -nocase {^\.+log} $message]
   if {[catch {db eval {
-    INSERT INTO log (date, flag, nick, userhost, handle, message)
-      VALUES (:date, :flag, :nick, :userhost, :handle, :message)
+    INSERT INTO log (date, flag, nick, userhost, handle, message, ignored)
+      VALUES (:date, :flag, :nick, :userhost, :handle, :message, :ignored)
   }}]} {
     putlog "::chanlog::logChannelMessage => Failed to log channel message: $::errorInfo"
   }

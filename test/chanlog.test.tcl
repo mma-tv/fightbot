@@ -12,28 +12,29 @@ proc setup {} {
   cleanup
   ::chanlog::init "log.test.db"
   ::chanlog::db eval {
-    INSERT INTO log (date, flag, nick, userhost, handle, message) VALUES
-      ('2018-10-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'first message'),
-      ('2019-01-13 01:02:03', '', 'Rect', 'k1@foo.bar.com', '*', 'second message'),
-      ('2019-02-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'how is this happening'),
-      ('2019-03-22 01:02:03', '', 'makk', 'k1@foo.bar.com', '*', 'unpossible'),
-      ('2019-04-22 01:02:03', '', 'john', 'k1@foo.bar.com', '*', 'the only way to ufc'),
-      ('2019-05-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'conor sucks'),
-      ('2019-06-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'what did you say?'),
-      ('2019-07-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'not this way'),
-      ('2019-08-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the one'),
-      ('2019-08-23 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the two'),
-      ('2019-08-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the three'),
-      ('2019-08-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the four'),
-      ('2019-08-26 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the five'),
-      ('2019-08-27 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the six'),
-      ('2019-08-28 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the seven'),
-      ('2019-08-29 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'cool not'),
-      ('2019-09-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'dun be dum'),
-      ('2019-10-22 01:02:03', '', 'ganj', 'k1@foo.bar.com', '*', 'if you say so'),
-      ('2019-10-23 01:02:03', '', 'paul', 'k1@foo.bar.com', '*', 'that is cool'),
-      ('2019-10-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'penultimate message'),
-      ('2019-10-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'last message')      
+    INSERT INTO log (date, flag, nick, userhost, handle, message, ignored) VALUES
+      ('2018-10-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'first message', 0),
+      ('2019-01-13 01:02:03', '', 'Rect', 'k1@foo.bar.com', '*', 'second message', 0),
+      ('2019-02-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'how is this happening', 0),
+      ('2019-03-22 01:02:03', '', 'makk', 'k1@foo.bar.com', '*', 'unpossible', 0),
+      ('2019-04-22 01:02:03', '', 'john', 'k1@foo.bar.com', '*', 'the only way to ufc', 0),
+      ('2019-05-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'conor sucks', 0),
+      ('2019-06-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'what did you say?', 0),
+      ('2019-07-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'not this way', 0),
+      ('2019-07-23 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', '.log the way', 1),
+      ('2019-08-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the one', 0),
+      ('2019-08-23 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the two', 0),
+      ('2019-08-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the three', 0),
+      ('2019-08-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the four', 0),
+      ('2019-08-26 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the five', 0),
+      ('2019-08-27 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the six', 0),
+      ('2019-08-28 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the seven', 0),
+      ('2019-08-29 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'cool not', 0),
+      ('2019-09-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'dun be dum', 0),
+      ('2019-10-22 01:02:03', '', 'ganj', 'k1@foo.bar.com', '*', 'if you say so', 0),
+      ('2019-10-23 01:02:03', '', 'paul', 'k1@foo.bar.com', '*', 'that is cool', 0),
+      ('2019-10-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'penultimate message', 0),
+      ('2019-10-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'last message', 0)
   }
 }
 
@@ -56,6 +57,11 @@ proc globNoCase {expected actual} {
   return [string match -nocase $expected $actual]
 }
 customMatch globNoCase globNoCase
+
+proc notGlobNoCase {expected actual} {
+  return [expr {![globNoCase $expected $actual]}]
+}
+customMatch notGlobNoCase notGlobNoCase
 
 test chanlog::init "should create empty database" -setup setup -body {
   file exists "log.test.db"
@@ -143,10 +149,15 @@ test chanlog::searchChanLog "should indicate when there are no more results" -bo
   ::chanlog::searchChanLog * * * * ".logn"
 } -result 1 -match globNoCase -output {*no more*}
 
-test chanlog::searchChanLog "should only show next results for matching nicks" -body {
+test chanlog::searchChanLog "should only show next results for previous query from nick" -body {
   ::chanlog::searchChanLog foo * * * ".log20 the"
   ::chanlog::searchChanLog bar * * * ".logn"
 } -result 1 -match globNoCase -output {*search for something*}
+
+test chanlog::searchChanLog "should ignore messages with .log commands" -body {
+  ::chanlog::searchChanLog * * * * ".log the"
+  ::chanlog::searchChanLog * * * * ".log100"
+} -result 0 -match notGlobNoCase -output {*.log*}
 
 cleanup
 cleanupTests
