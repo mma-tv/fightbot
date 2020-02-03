@@ -18,16 +18,17 @@ namespace eval ::chanlog::v {
 
 variable ::chanlog::v::usage {
   {Usage: .[.]log[-+=][limit],[+-contextLines],[nickFilter] [query]}
-  {.log =12345 => Find the log message with id 12345}
-  {..log => Use two leading dots for verbose output (includes userhosts)}
-  {.log12 (or .log-12) => Fetch last 12 log entries}
-  {.log+2 ufc => Find the oldest 2 messages that include "ufc"}
-  {.log-2 ufc => Find the newest 2 messages that include "ufc"}
-  {.log=2 ufc fight => Find the 2 messages that best match "ufc fight"}
   {.log5,-3+4,makk|mbp conor sucks}
   {* Find at most 5 log messages that include "conor" and "sucks",}
   {  with 3 lines of context before and 4 lines of context after,}
   {  from nicknames matching the regular expression "makk|mbp".}
+  {.log =12345 => Find the log message with id 12345}
+  {.log12 (or .log-12) => Fetch last 12 log entries}
+  {.log+2 ufc => Find the oldest 2 messages that include "ufc"}
+  {.log-2 ufc => Find the newest 2 messages that include "ufc"}
+  {.log=2 ufc fight => Find the 2 messages that best match "ufc fight"}
+  {.logn => Return next set of results from previous search}
+  {..log => Use two leading dots for verbose output (includes userhosts)}
   {End of usage.}
 }
 
@@ -120,12 +121,11 @@ proc ::chanlog::sanitizeQuery {text} {
   return [string trim $text]
 }
 
-proc ::chanlog::query {text {fields {id date flag nick message}}} {
+proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   set cmd [lindex [split $text] 0]
   set query [string trim [join [lrange [split $text] 1 end]]]
   set cols [join $fields ", "]
 
-  set offset 0
   set maxResults $v::defaultLimit
   set contextLines ""
   set includedNicks ""
@@ -179,13 +179,57 @@ proc ::chanlog::query {text {fields {id date flag nick message}}} {
       UNION SELECT $cols FROM cteMatch\
       UNION SELECT $cols FROM cteContextAfter\
       ORDER BY id\
-      LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)"
+      LIMIT (SELECT maxResults FROM cteInput)"
 
     set result [db eval $sql]
   }
 
   return $result
 }
+
+proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
+  set ret [::log::logStackable $unick $host $handle $dest $text]
+  set cmd [lindex [split $text] 0]
+  set query [string trim [join [lrange [split $text] 1 end]]]
+  set args [list $unick $host $handle $dest $text]
+
+  if {[string match .logn* $cmd]} {
+    if {[info exists v::nextResults($unick!$host)]} {
+      searchChanLog {*}$v::nextResults($unick!$host)
+    } else {
+      send $unick $dest "You have to search for something first."
+    }
+    return $ret
+  }
+
+  if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
+    msend $unick $dest $v::usage
+    return $ret
+  }
+
+  set totalResults 0
+  set fmt {=%d [%s] <%s%s> %s}
+  set fields {id date flag nick message}
+  if {[string match ..* $cmd]} { ;# verbose output
+    set fmt {=%d [%s] <%s%s!%s> %s}
+    set fields {id date flag nick userhost message}
+  }
+  foreach $fields [query $text $fields $offset] {
+    set text [format $fmt {*}[lmap field $fields {set $field}]]
+    send $unick $dest $text
+    incr totalResults
+  }
+  if {$totalResults > 0} {
+    set v::nextResults($unick!$host) [lappend args [expr {$offset + $totalResults}]]
+  } else {
+    array unset v::nextResults($unick!$host)
+    send $unick $dest "No more search results."
+  }
+
+  return $ret
+}
+::irc::mbind {msgm pubm} - {"% .log*"} ::chanlog::searchChanLog 
+::irc::mbind {msgm pubm} - {"% ..log*"} ::chanlog::searchChanLog
 
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
@@ -198,29 +242,4 @@ proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   }
 }
 ::irc::mbind pubm - * ::chanlog::logChannelMessage
-
-proc ::chanlog::searchChanLog {unick host handle dest text} {
-  set ret [::log::logStackable $unick $host $handle $dest $text]
-  set cmd [lindex [split $text] 0]
-  set query [string trim [join [lrange [split $text] 1 end]]]
-
-  if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
-    msend $unick $dest $v::usage
-  } elseif {[string match ..* $cmd]} { ;# verbose output
-    set fields {id date flag nick userhost handle message}
-    foreach $fields [query $text $fields] {
-      set text [format {=%d [%s] (%s) <%s%s!%s> %s} $id $date $handle $flag $nick $userhost $message]
-      send $unick $dest $text
-    }
-  } else {
-    foreach {id date flag nick message} [query $text] {
-      set text [format {=%d [%s] <%s%s> %s} $id $date $flag $nick $message]
-      send $unick $dest $text
-    }
-  }
-
-  return $ret
-}
-::irc::mbind {msgm pubm} - {"% .log*"} ::chanlog::searchChanLog
-::irc::mbind {msgm pubm} - {"% ..log*"} ::chanlog::searchChanLog
 return

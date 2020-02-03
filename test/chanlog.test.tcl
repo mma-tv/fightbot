@@ -21,7 +21,14 @@ proc setup {} {
       ('2019-05-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'conor sucks'),
       ('2019-06-22 01:02:03', '', 'jack', 'k1@foo.bar.com', '*', 'what did you say?'),
       ('2019-07-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'not this way'),
-      ('2019-08-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'cool not'),
+      ('2019-08-22 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the one'),
+      ('2019-08-23 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the two'),
+      ('2019-08-24 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the three'),
+      ('2019-08-25 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the four'),
+      ('2019-08-26 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the five'),
+      ('2019-08-27 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the six'),
+      ('2019-08-28 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'the seven'),
+      ('2019-08-29 01:02:03', '+', 'makk', 'k1@foo.bar.com', '*', 'cool not'),
       ('2019-09-22 01:02:03', '@', 'mbp', 'k1@foo.bar.com', '*', 'dun be dum'),
       ('2019-10-22 01:02:03', '', 'ganj', 'k1@foo.bar.com', '*', 'if you say so'),
       ('2019-10-23 01:02:03', '', 'paul', 'k1@foo.bar.com', '*', 'that is cool'),
@@ -124,6 +131,22 @@ test chanlog::query "should sanitize queries against syntax errors" -body {
   set ret 0
   incr ret [llength [pluck message [::chanlog::query {.log ufc NOT NOT foo +a#a-blah}]]]
 } -result 0
+
+test chanlog::searchChanLog "should return next set of results" -body {
+  ::chanlog::searchChanLog * * * * ".log2 the"
+  ::chanlog::searchChanLog * * * * ".logn"
+  ::chanlog::searchChanLog * * * * ".logn"
+} -result 1 -match glob -output "*\n*\n*four*\n*five*\n*two*\n*three\n"
+
+test chanlog::searchChanLog "should indicate when there are no more results" -body {
+  ::chanlog::searchChanLog * * * * ".log20 the"
+  ::chanlog::searchChanLog * * * * ".logn"
+} -result 1 -match globNoCase -output {*no more*}
+
+test chanlog::searchChanLog "should only show next results for matching nicks" -body {
+  ::chanlog::searchChanLog foo * * * ".log20 the"
+  ::chanlog::searchChanLog bar * * * ".logn"
+} -result 1 -match globNoCase -output {*search for something*}
 
 cleanup
 cleanupTests
