@@ -217,7 +217,15 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
     set fmt {=%d [%s] <%s%s!%s> %s}
     set fields {id date flag nick userhost message}
   }
-  foreach $fields [query $text $fields $offset] {
+
+  set results [query $text $fields $offset]
+  set maxId 0
+  foreach $fields $results {
+    set maxId [expr {max($id, $maxId)}]
+  }
+  regsub {^=%} $fmt "\&-[string length $maxId]" fmt
+
+  foreach $fields $results {
     set text [format $fmt {*}[lmap field $fields {set $field}]]
     send $unick $dest $text
     incr totalResults

@@ -58,11 +58,6 @@ proc globNoCase {expected actual} {
 }
 customMatch globNoCase globNoCase
 
-proc notGlobNoCase {expected actual} {
-  return [expr {![globNoCase $expected $actual]}]
-}
-customMatch notGlobNoCase notGlobNoCase
-
 test chanlog::init "should create empty database" -setup setup -body {
   file exists "log.test.db"
 } -result 1
@@ -157,7 +152,11 @@ test chanlog::searchChanLog "should only show next results for previous query fr
 test chanlog::searchChanLog "should ignore messages with .log commands" -body {
   ::chanlog::searchChanLog * * * * ".log the"
   ::chanlog::searchChanLog * * * * ".log100"
-} -result 0 -match notGlobNoCase -output {*.log*}
+} -result 1 -match regexp -output {^((?!\.log).)*$}
+
+test chanlog::searchChanLog "should properly align id column" -body {
+  ::chanlog::searchChanLog * * * * ".log message"
+} -result 1 -match regexp -output {.*:=\d  \[.*:=\d\d \[}
 
 cleanup
 cleanupTests
