@@ -17,10 +17,7 @@ namespace eval ::sherdog {
     namespace export query parse print printSummary
     namespace import ::ctrlCodes::* ::formatter::tabulate
 
-    variable SEARCH_BASE  "https://www.bing.com/search"
-    variable SEARCH_QUERY "site:sherdog.com/fighter %s"
-    variable SEARCH_LINK  "sherdog.com/fighter/"
-    variable USE_CACHE    true
+    variable USE_CACHE true
     variable CACHE_EXPIRATION 90 ;# minutes
 
     variable cache
@@ -121,11 +118,17 @@ proc ::sherdog::parse {html {url ""}} {
     return $fighter
 }
 
-proc ::sherdog::query {query responseVar errorVar {mode -verbose} args} {
-    variable SEARCH_BASE
-    variable SEARCH_QUERY
-    variable SEARCH_LINK
+proc ::sherdog::getFirstGoogleResultUrl {query} {
+    set html [url::get "https://www.google.com/search" num 1 q [format {site:www.sherdog.com/fighter/ %s} $query]]
+    set dom [dom parse -html $html]
+    set doc [$dom documentElement]
+    set substr {//www.sherdog.com/fighter/}
+    set url [$doc selectNodes [subst -nocommands {string(//a[contains(@href, '$substr')]/@href)}]]
+    $dom delete
+    return [regexp -inline {https?://www\.sherdog\.com/fighter/[^&?#]+} $url]
+}
 
+proc ::sherdog::query {query responseVar errorVar {mode -verbose} args} {
     upvar $responseVar res $errorVar err
     set res {}
     set err ""
@@ -133,9 +136,7 @@ proc ::sherdog::query {query responseVar errorVar {mode -verbose} args} {
     set url [cache link $query]
     if {$url eq ""} {
         putlog "Searching for sherdog link matching '$query'"
-        set searchResults [url::get $SEARCH_BASE q [format $SEARCH_QUERY $query]]
-        set url [getFirstSearchResult $searchResults $SEARCH_LINK]
-        regsub {\#.*} $url "" url
+        set url [getFirstGoogleResultUrl $query]
         if {$url eq ""} {
             set err "No match for '$query' in the Sherdog Fight Finder."
             return false
@@ -375,14 +376,6 @@ proc ::sherdog::addn {listVar args} {
     upvar $listVar l
     lappend l " "
     return [add l {*}$args]
-}
-
-proc ::sherdog::getFirstSearchResult {html {substr "http"}} {
-    set dom [dom parse -html $html]
-    set doc [$dom documentElement]
-    set link [$doc selectNodes [subst -nocommands {string(//h2//a[contains(@href, '$substr')][1]/@href)}]]
-    $dom delete
-    return $link
 }
 
 proc ::sherdog::select {doc selector {format string} {dateFormatIn "%Y-%m-%d"} {dateFormatOut "%Y-%m-%d"}} {
