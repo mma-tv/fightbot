@@ -8,8 +8,7 @@
 # Author: makk@EFnet
 # Contributors: wims@EFnet
 #
-# Release Date: May 14, 2010
-#  Last Update: Jan 19, 2020
+# Original Release Date: May 14, 2010
 #
 # Requirements: Eggdrop 1.6.16+, TCL 8.5+, SQLite 3.6.19+
 #
@@ -17,6 +16,7 @@
 
 ::tcl::tm::path add [file dirname [info script]]
 
+package require http
 package require bot
 package require irc
 package require log
@@ -50,7 +50,7 @@ variable minBestPicks    5             ;# min number of picks to qualify for win
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.4"
+variable scriptVersion "1.6.5"
 variable ns [namespace current]
 variable poll
 variable pollTimer
@@ -2113,6 +2113,21 @@ proc best {unick host handle dest text} {
     return [logStackable $unick $host $handle $dest $text]
 }
 mbind {msgm pubm} - {"% .best*"} ${ns}::best
+
+proc activity {unick host handle dest text} {
+  set args [split [string trim $text]]
+  if {[set argc [llength $args]]} {
+    set target [expr {$unick eq $dest ? $unick : $dest}]
+    set params [list user [lindex $args 0]]
+    if {$argc > 1} {
+      lappend params tz [lindex $args 1]
+    }
+    msg $target "https://mma-tv.github.io/activity/?[http::formatQuery {*}$params]"
+    return 1
+  }
+  return [send $unick $dest {Usage: .activity <user> [timezone]}]
+}
+mbind {msg pub} - {.activity} ${ns}::activity
 
 proc help {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
