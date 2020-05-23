@@ -62,6 +62,7 @@ test chanlog::init "should create empty database" -setup setup -body {
   file exists "log.test.db"
 } -result 1
 
+if {0} {
 test chanlog::logChannelMessage "should log channel messages" -body {
   ::chanlog::logChannelMessage "makk" "k1@foo.bar.com" "*" "#mma-tv" "unbelievably awesome"
   ::chanlog::db eval {
@@ -157,6 +158,15 @@ test chanlog::searchChanLog "should ignore messages with .log commands" -body {
 test chanlog::searchChanLog "should properly align id column" -body {
   ::chanlog::searchChanLog * * * * ".log message"
 } -result 1 -match regexp -output {.*:=\d  \[.*:=\d\d \[}
+}
+
+test chanlog::query "should filter by date" -body {
+  llength [pluck id [::chanlog::query ".log,>=2019-04-22,<=2019-08-24 the"]]
+} -result 3
+
+test chanlog::query "should filter by date" -body {
+  llength [pluck id [::chanlog::query ".log,=2019-04-22 the"]]
+} -result 1
 
 cleanup
 cleanupTests

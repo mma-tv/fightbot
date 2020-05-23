@@ -130,9 +130,11 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   set cols [join $fields ", "]
 
   set maxResults $v::defaultLimit
+  set dateFilters {}
   set contextLines ""
   set includedNicks ""
   set excludedNicks $v::excludedNicks
+  set WHERE ""
 
   set args [split $cmd ,]
   regexp {([-+=]?)((?:\d+)?)$} [lindex $args 0] m sortOrder maxResults
@@ -140,9 +142,22 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   set maxResults [expr {min($maxResults eq "" ? $v::defaultLimit : $maxResults, $v::maxLimit)}]
 
   foreach arg [lrange $args 1 end] {
-    switch -regexp -- $arg {
+    switch -regexp -matchvar m -- $arg {
+      {^([<>]?=?)(\d[\d\s:-]*)$} { lappend dateFilters [lindex $m 1] [lindex $m 2] }
       {^(?:-\d+(?:\+\d+)?|\+\d+(?:-\d+)?)$} { set contextLines $arg }
       {\w} { set includedNicks $arg }
+    }
+  }
+
+  if {[llength $dateFilters]} {
+    set filters {}
+    foreach {op date} $dateFilters {
+      if {[string match [regsub -all {\d} $date d]* "dddd-dd-dd dd:dd:dd"]} {
+        lappend filters "date [expr {$op eq "" ? "=" : $op}] '$date'"
+      }
+    }
+    if {[llength $filters]} {
+      set WHERE "WHERE [join $filters " AND "]"
     }
   }
 
@@ -154,7 +169,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
     if {$query eq ""} {
       set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
       set sql "[WITH cteInput cteNicks $cteRecords]\
-        SELECT $cols FROM $cteRecords ORDER BY id"
+        SELECT $cols FROM $cteRecords $WHERE ORDER BY id"
     } else {
       switch -- $sortOrder {
         {-} { set cteSortedMatches "cteNewestMatches" }
@@ -162,7 +177,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
         {=} { set cteSortedMatches "cteBestMatches" }
       }
       set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
-        SELECT $cols FROM $cteSortedMatches ORDER BY id"
+        SELECT $cols FROM $cteSortedMatches $WHERE ORDER BY id"
     }
   }
 
@@ -178,9 +193,9 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
     set highlightMatches [expr {$maxLinesBefore || $maxLinesAfter}]
 
     set sql "[WITH cteInput cteNicks cteRecords cteMatch cteContextBefore cteContextAfter]\
-      SELECT $cols FROM cteContextBefore\
-      UNION SELECT $cols FROM cteMatch\
-      UNION SELECT $cols FROM cteContextAfter\
+      SELECT $cols FROM cteContextBefore $WHERE\
+      UNION SELECT $cols FROM cteMatch $WHERE\
+      UNION SELECT $cols FROM cteContextAfter $WHERE\
       ORDER BY id\
       LIMIT (SELECT maxResults FROM cteInput)"
 
