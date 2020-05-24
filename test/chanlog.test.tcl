@@ -110,7 +110,7 @@ test chanlog::query "should support query limits" -body {
 } -result 4
 
 test chanlog::query "should support nick filtering" -body {
-  pluck nick [::chanlog::query ".log,mbp"]
+  pluck nick [::chanlog::query ".log10,mbp"]
 } -result {mbp mbp}
 
 test chanlog::query "should allow searching in chronological order" -body {
@@ -140,11 +140,11 @@ test chanlog::searchChanLog "should highlight matching search terms" -body {
 
 test chanlog::query "should support verbose mode" -body {
   set fields {id date flag nick userhost handle message}
-  llength [pluck $fields [::chanlog::query "..log ufc" $fields] $fields]
+  llength [pluck $fields [::chanlog::query "..log10 ufc" $fields] $fields]
 } -result 7
 
 test chanlog::searchChanLog "should print verbose mode" -body {
-  ::chanlog::searchChanLog * * * * "..log message"
+  ::chanlog::searchChanLog * * * * "..log10 message"
 } -result 1 -match glob -output {PRIVMSG * :=*<Rect!k1@foo.bar.com>*=*<+makk!k1@foo.bar.com>*}
 
 test chanlog::searchChanLog "should return usage help when no args" -body {
@@ -152,11 +152,11 @@ test chanlog::searchChanLog "should return usage help when no args" -body {
 } -result 1 -match globNoCase -output {*usage*}
 
 test chanlog::query "should support boolean NOT queries with -term" -body {
-  llength [pluck message [::chanlog::query ".log message -second"]]
+  llength [pluck message [::chanlog::query ".log10 message -second"]]
 } -result 3
 
 test chanlog::query "should support boolean OR queries" -body {
-  llength [pluck message [::chanlog::query ".log conor OR ufc"]]
+  llength [pluck message [::chanlog::query ".log10 conor OR ufc"]]
 } -result 2
 
 test chanlog::query "should sanitize queries against syntax errors" -body {
@@ -192,7 +192,7 @@ test chanlog::searchChanLog "should properly align id column" -body {
 } -result 1
 
 test chanlog::query "should filter by date" -body {
-  llength [pluck id [::chanlog::query ".log,>=2019-04-20,<=2019-08-24T23:59:59"]]
+  llength [pluck id [::chanlog::query ".log10,>=2019-04-20,<=2019-08-24T23:59:59"]]
 } -result 7
 
 cleanup

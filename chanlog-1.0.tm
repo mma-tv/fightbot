@@ -10,10 +10,9 @@ namespace eval ::chanlog {
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
   variable dbSetupScript "chanlog.sql"
-  variable excludedNicks {^(?:cnr|k1|k-1)$}
   variable maxPublic 3     ;# max results to post to channel
   variable maxLimit 100    ;# max search results
-  variable defaultLimit 10 ;# default number of search results
+  variable defaultLimit 1  ;# default number of search results
   variable defaultSortOrder "-" ;# -(desc), +(asc), =(best match)
 }
 
@@ -182,6 +181,8 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
     set maxLinesAfter [regexp -inline -- {\+\d+} $contextLines]
     set maxLinesBefore [expr {($maxLinesBefore ne "" && $maxLinesBefore < 0) ? abs($maxLinesBefore) : 0}]
     set maxLinesAfter [expr {($maxLinesAfter > 0) ? $maxLinesAfter : 0}]
+    set maxResults [expr {min(max($maxLinesBefore + $maxLinesAfter + 1, $maxResults), $v::maxLimit)}]
+
     set hlcols $cols
     if {$maxLinesBefore || $maxLinesAfter} {
       # HACK: Flag a result for highlight by appending a sentinel \uFFFF char
@@ -263,13 +264,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
   set flag [expr {[isop $nick $channel] ? "@" : ([isvoice $nick $channel] ? "+" : "")}]
-  set ignored 0
-  if {[regexp -nocase $v::excludedNicks $nick] || [matchattr $handle b]} {
-    set ignored [expr {$ignored | 1}]
-  }
-  if {[regexp -nocase {^\.+log} $message]} {
-    set ignored [expr {$ignored | 2}]
-  }
+  set ignored [regexp -nocase {^\.+log} $message]
   if {[catch {db eval {
     INSERT INTO log (date, flag, nick, userhost, handle, message, ignored)
       VALUES (:date, :flag, :nick, :userhost, :handle, :message, :ignored)
