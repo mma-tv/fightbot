@@ -58,11 +58,36 @@ proc globNoCase {expected actual} {
 }
 customMatch globNoCase globNoCase
 
+oo::class create ChannelIntercept {
+  variable buffer
+
+  method initialize {handle mode} {
+    if {$mode ne "write"} {error "can't handle reading"}
+    return {finalize initialize write}
+  }
+  method finalize {handle} {
+  }
+  method write {handle bytes} {
+    append buffer $bytes
+    return ""
+  }
+  method buffer {} {
+    return $buffer
+  }
+}
+
+proc capture {channel lambda} {
+  set interceptor [ChannelIntercept new]
+  chan push $channel $interceptor
+  apply [list x $lambda] {}
+  chan pop $channel
+  return [$interceptor buffer]
+}
+
 test chanlog::init "should create empty database" -setup setup -body {
   file exists "log.test.db"
 } -result 1
 
-if {0} {
 test chanlog::logChannelMessage "should log channel messages" -body {
   ::chanlog::logChannelMessage "makk" "k1@foo.bar.com" "*" "#mma-tv" "unbelievably awesome"
   ::chanlog::db eval {
@@ -98,7 +123,7 @@ test chanlog::query "should allow searching in reverse chronological order" -bod
 
 test chanlog::query "should query in reverse chronological order by default" -body {
   pluck message [::chanlog::query ".log2"]
-} -result {{penultimate message} {last message}}
+} -result {{last message} {penultimate message}}
 
 test chanlog::query "should support id matching" -body {
   pluck id [::chanlog::query ".log =4"]
@@ -115,7 +140,7 @@ test chanlog::query "should support verbose mode" -body {
 
 test chanlog::searchChanLog "should print verbose mode" -body {
   ::chanlog::searchChanLog * * * * "..log message"
-} -result 1 -match glob -output {PRIVMSG * :=1 *<+makk!k1@foo.bar.com>*=2 *<Rect!k1@foo.bar.com>*}
+} -result 1 -match glob -output {PRIVMSG * :=*<Rect!k1@foo.bar.com>*=*<+makk!k1@foo.bar.com>*}
 
 test chanlog::searchChanLog "should return usage help when no args" -body {
   ::chanlog::searchChanLog * * * * ".log"
@@ -138,7 +163,7 @@ test chanlog::searchChanLog "should return next set of results" -body {
   ::chanlog::searchChanLog * * * * ".log2 the"
   ::chanlog::searchChanLog * * * * ".logn"
   ::chanlog::searchChanLog * * * * ".logn"
-} -result 1 -match glob -output "*\n*\n*four*\n*five*\n*two*\n*three\n"
+} -result 1 -match glob -output "*seven\n*six\n*five\n*four\n*three\n*two\n"
 
 test chanlog::searchChanLog "should indicate when there are no more results" -body {
   ::chanlog::searchChanLog * * * * ".log20 the"
@@ -156,17 +181,14 @@ test chanlog::searchChanLog "should ignore messages with .log commands" -body {
 } -result 1 -match regexp -output {^((?!\.log).)*$}
 
 test chanlog::searchChanLog "should properly align id column" -body {
-  ::chanlog::searchChanLog * * * * ".log message"
-} -result 1 -match regexp -output {.*:=\d  \[.*:=\d\d \[}
-}
-
-test chanlog::query "should filter by date" -body {
-  llength [pluck id [::chanlog::query ".log,>=2019-04-22,<=2019-08-24 the"]]
-} -result 3
-
-test chanlog::query "should filter by date" -body {
-  llength [pluck id [::chanlog::query ".log,=2019-04-22 the"]]
+  set output [capture stdout {::chanlog::searchChanLog * * * * ".log message"}]
+  set lengths [lmap msg [regexp -all -inline -line {^[^[]+} $output] {string length $msg}]
+  tcl::mathop::== {*}$lengths
 } -result 1
+
+test chanlog::query "should filter by date" -body {
+  llength [pluck id [::chanlog::query ".log,>=2019-04-20,<=2019-08-24T23:59:59"]]
+} -result 7
 
 cleanup
 cleanupTests

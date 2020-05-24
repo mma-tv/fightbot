@@ -39,9 +39,7 @@ variable ::chanlog::v::cteList [dict create cteInput {
     :includedNicks AS includedNicks,
     :excludedNicks AS excludedNicks,
     :maxLinesBefore AS maxLinesBefore,
-    :maxLinesAfter AS maxLinesAfter,
-    :offset AS offset,
-    :maxResults AS maxResults
+    :maxLinesAfter AS maxLinesAfter
 } cteNicks {
   SELECT nick
     FROM nicknames
@@ -52,13 +50,11 @@ variable ::chanlog::v::cteList [dict create cteInput {
     FROM log m JOIN cteNicks n ON m.nick = n.nick
     WHERE NOT ignored
     ORDER BY id ASC
-    LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteNewestRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
     WHERE NOT ignored
     ORDER BY id DESC
-    LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
@@ -72,17 +68,14 @@ variable ::chanlog::v::cteList [dict create cteInput {
   SELECT r.*
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id ASC
-    LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteNewestMatches {
   SELECT r.*
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id DESC
-    LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteBestMatches {
   SELECT r.*
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY m.rank
-    LIMIT (SELECT offset FROM cteInput), (SELECT maxResults FROM cteInput)
 } cteMatch {
   SELECT *
     FROM cteRecords
@@ -143,7 +136,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
 
   foreach arg [lrange $args 1 end] {
     switch -regexp -matchvar m -- $arg {
-      {^([<>]?=?)(\d[\d\s:-]*)$} { lappend dateFilters [lindex $m 1] [lindex $m 2] }
+      {^([<>]?=?)(\d[-\dT:]*)$} { lappend dateFilters [lindex $m 1] [lindex $m 2] }
       {^(?:-\d+(?:\+\d+)?|\+\d+(?:-\d+)?)$} { set contextLines $arg }
       {\w} { set includedNicks $arg }
     }
@@ -152,12 +145,12 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   if {[llength $dateFilters]} {
     set filters {}
     foreach {op date} $dateFilters {
-      if {[string match [regsub -all {\d} $date d]* "dddd-dd-dd dd:dd:dd"]} {
-        lappend filters "date [expr {$op eq "" ? "=" : $op}] '$date'"
+      if {[string match [regsub -all {\d} $date d]* "dddd-dd-ddTdd:dd:dd"]} {
+        lappend filters "date [expr {$op eq "" ? "=" : $op}] DATETIME('$date')"
       }
     }
     if {[llength $filters]} {
-      set WHERE "WHERE [join $filters " AND "]"
+      set WHERE "WHERE ([join $filters " AND "])"
     }
   }
 
@@ -169,7 +162,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
     if {$query eq ""} {
       set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
       set sql "[WITH cteInput cteNicks $cteRecords]\
-        SELECT $cols FROM $cteRecords $WHERE ORDER BY id"
+        SELECT $cols FROM $cteRecords $WHERE LIMIT :offset, :maxResults"
     } else {
       switch -- $sortOrder {
         {-} { set cteSortedMatches "cteNewestMatches" }
@@ -177,7 +170,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
         {=} { set cteSortedMatches "cteBestMatches" }
       }
       set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
-        SELECT $cols FROM $cteSortedMatches $WHERE ORDER BY id"
+        SELECT $cols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxResults"
     }
   }
 
@@ -196,8 +189,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
       SELECT $cols FROM cteContextBefore $WHERE\
       UNION SELECT $cols FROM cteMatch $WHERE\
       UNION SELECT $cols FROM cteContextAfter $WHERE\
-      ORDER BY id\
-      LIMIT (SELECT maxResults FROM cteInput)"
+      LIMIT :offset, :maxResults"
 
     set result [db eval $sql]
   }
