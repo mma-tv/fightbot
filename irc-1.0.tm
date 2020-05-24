@@ -2,7 +2,7 @@ package require log
 package require formatter
 
 namespace eval ::irc {
-    namespace export put putMessage putNotice putAction msg send msend mbind
+    namespace export put putMessage putNotice putAction msg send msend mpost mbind
     namespace import ::log::log ::formatter::s
 
     variable putCommand putnow  ;# send function: putnow, putquick, putserv, puthelp
@@ -114,6 +114,12 @@ proc ::irc::msend {unick dest lines} {
     foreach line $lines {
         send $unick $dest $line
     }
+}
+
+proc ::irc::mpost {dest lines} {
+  foreach line $lines {
+    msg $dest $line
+  }
 }
 
 proc ::irc::redirect {handler unick host handle text} {

@@ -133,6 +133,11 @@ test chanlog::query "should support context lines" -body {
   pluck id [::chanlog::query ".log,-1+3 unpossible"]
 } -result {3 4 5 6 7}
 
+test chanlog::searchChanLog "should highlight matching search terms" -body {
+  set output [capture stdout {::chanlog::searchChanLog * * * * ".log the way"}]
+  string match "*\002the\002 only \002way\002*" $output
+} -result 1
+
 test chanlog::query "should support verbose mode" -body {
   set fields {id date flag nick userhost handle message}
   llength [pluck $fields [::chanlog::query "..log ufc" $fields] $fields]

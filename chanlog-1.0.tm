@@ -5,12 +5,13 @@ package require log
 package require database
 
 namespace eval ::chanlog {
-  namespace import ::irc::send ::irc::msend ::database::loadDatabase
+  namespace import ::irc::send ::irc::msend ::irc::mpost ::database::loadDatabase
 }
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
   variable dbSetupScript "chanlog.sql"
   variable excludedNicks "^(?:cnr|k1|k-1)$"
+  variable maxPublic 3     ;# max results to post to channel
   variable maxLimit 100    ;# max search results
   variable defaultLimit 10 ;# default number of search results
   variable defaultSortOrder "-" ;# -(desc), +(asc), =(best match)
@@ -60,20 +61,20 @@ variable ::chanlog::v::cteList [dict create cteInput {
     FROM log m JOIN cteNicks n ON m.nick = n.nick
     WHERE NOT ignored
 } cteMatches {
-  SELECT id, rank
+  SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS highlighted
     FROM log_fts
     WHERE nick IN (SELECT nick FROM cteNicks)
     AND message MATCH (SELECT query FROM cteInput)
 } cteOldestMatches {
-  SELECT r.*
+  SELECT r.*, highlighted
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id ASC
 } cteNewestMatches {
-  SELECT r.*
+  SELECT r.*, highlighted
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id DESC
 } cteBestMatches {
-  SELECT r.*
+  SELECT r.*, highlighted
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY m.rank
 } cteMatch {
@@ -169,8 +170,9 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
         {+} { set cteSortedMatches "cteOldestMatches" }
         {=} { set cteSortedMatches "cteBestMatches" }
       }
+      set hlcols [join [lmap col $fields {expr {$col eq "message" ? "highlighted" : $col}}] ,]
       set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
-        SELECT $cols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxResults"
+        SELECT $hlcols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxResults"
     }
   }
 
@@ -183,11 +185,14 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
     set maxLinesAfter [regexp -inline -- {\+\d+} $contextLines]
     set maxLinesBefore [expr {($maxLinesBefore ne "" && $maxLinesBefore < 0) ? abs($maxLinesBefore) : 0}]
     set maxLinesAfter [expr {($maxLinesAfter > 0) ? $maxLinesAfter : 0}]
-    set highlightMatches [expr {$maxLinesBefore || $maxLinesAfter}]
-
+    set hlcols $cols
+    if {$maxLinesBefore || $maxLinesAfter} {
+      # HACK: Flag a result for highlight by appending a sentinel \uFFFF char
+      set hlcols [join [lmap col $fields {expr {$col eq "message" ? "(message || CHAR(0xFFFF)) AS message" : $col}}] ,]
+    }
     set sql "[WITH cteInput cteNicks cteRecords cteMatch cteContextBefore cteContextAfter]\
       SELECT $cols FROM cteContextBefore $WHERE\
-      UNION SELECT $cols FROM cteMatch $WHERE\
+      UNION SELECT $hlcols FROM cteMatch $WHERE\
       UNION SELECT $cols FROM cteContextAfter $WHERE\
       LIMIT :offset, :maxResults"
 
@@ -232,13 +237,22 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
   }
   regsub {^=%} $fmt "\&-[string length $maxId]" fmt
 
+  set messages {}
   foreach $fields $results {
-    set text [format $fmt {*}[lmap field $fields {set $field}]]
-    send $unick $dest $text
-    incr totalResults
+    set msg [format $fmt {*}[lmap field $fields {set $field}]]
+    # HACK: If sentinel character is found, remove it and highlight whole line
+    regsub "^(.*)\uFFFF(.*)$" $msg "\002\\1\\2\002" msg
+    lappend messages $msg
   }
-  if {$totalResults > 0} {
-    set v::nextResults($unick!$host) [lappend args [expr {$offset + $totalResults}]]
+
+  set numMessages [llength $messages]
+  if {$numMessages > 0} {
+    if {$numMessages > $v::maxPublic} {
+      msend $unick $dest $messages
+    } else {
+      mpost $dest $messages
+    }
+    set v::nextResults($unick!$host) [lappend args [expr {$offset + $numMessages}]]
   } else {
     array unset v::nextResults($unick!$host)
     send $unick $dest "No more search results."
@@ -252,7 +266,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
   set flag [expr {[isop $nick $channel] ? "@" : ([isvoice $nick $channel] ? "+" : "")}]
-  set ignored [regexp -nocase {^\.+log} $message]
+  set ignored [expr {[regexp -nocase $v::excludedNicks $nick] || [regexp -nocase {^\.+log} $message]}]
   if {[catch {db eval {
     INSERT INTO log (date, flag, nick, userhost, handle, message, ignored)
       VALUES (:date, :flag, :nick, :userhost, :handle, :message, :ignored)
