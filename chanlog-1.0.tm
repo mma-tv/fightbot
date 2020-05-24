@@ -10,7 +10,7 @@ namespace eval ::chanlog {
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
   variable dbSetupScript "chanlog.sql"
-  variable excludedNicks "^(?:cnr|k1|k-1)$"
+  variable excludedNicks {^(?:cnr|k1|k-1)$}
   variable maxPublic 3     ;# max results to post to channel
   variable maxLimit 100    ;# max search results
   variable defaultLimit 10 ;# default number of search results
@@ -38,14 +38,12 @@ variable ::chanlog::v::cteList [dict create cteInput {
     :id AS id,
     :query AS query,
     :includedNicks AS includedNicks,
-    :excludedNicks AS excludedNicks,
     :maxLinesBefore AS maxLinesBefore,
     :maxLinesAfter AS maxLinesAfter
 } cteNicks {
   SELECT nick
     FROM nicknames
     WHERE nick REGEXP (SELECT includedNicks FROM cteInput)
-    AND nick NOT REGEXP (SELECT excludedNicks FROM cteInput)
 } cteOldestRecords {
   SELECT m.*
     FROM log m JOIN cteNicks n ON m.nick = n.nick
@@ -127,7 +125,6 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   set dateFilters {}
   set contextLines ""
   set includedNicks ""
-  set excludedNicks $v::excludedNicks
   set WHERE ""
 
   set args [split $cmd ,]
@@ -266,7 +263,13 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
   set flag [expr {[isop $nick $channel] ? "@" : ([isvoice $nick $channel] ? "+" : "")}]
-  set ignored [expr {[regexp -nocase $v::excludedNicks $nick] || [regexp -nocase {^\.+log} $message]}]
+  set ignored 0
+  if {[regexp -nocase $v::excludedNicks $nick] || [matchattr $handle b]} {
+    set ignored [expr {$ignored | 1}]
+  }
+  if {[regexp -nocase {^\.+log} $message]} {
+    set ignored [expr {$ignored | 2}]
+  }
   if {[catch {db eval {
     INSERT INTO log (date, flag, nick, userhost, handle, message, ignored)
       VALUES (:date, :flag, :nick, :userhost, :handle, :message, :ignored)
