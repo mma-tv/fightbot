@@ -39,29 +39,23 @@ variable ::chanlog::v::cteList [dict create cteInput {
     :includedNicks AS includedNicks,
     :maxLinesBefore AS maxLinesBefore,
     :maxLinesAfter AS maxLinesAfter
-} cteNicks {
-  SELECT nick
-    FROM nicknames
+} cteRecords {
+  SELECT *
+    FROM log
     WHERE nick REGEXP (SELECT includedNicks FROM cteInput)
+      AND NOT ignored
 } cteOldestRecords {
-  SELECT m.*
-    FROM log m JOIN cteNicks n ON m.nick = n.nick
-    WHERE NOT ignored
+  SELECT *
+    FROM cteRecords
     ORDER BY id ASC
 } cteNewestRecords {
-  SELECT m.*
-    FROM log m JOIN cteNicks n ON m.nick = n.nick
-    WHERE NOT ignored
+  SELECT *
+    FROM cteRecords
     ORDER BY id DESC
-} cteRecords {
-  SELECT m.*
-    FROM log m JOIN cteNicks n ON m.nick = n.nick
-    WHERE NOT ignored
 } cteMatches {
   SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS highlighted
     FROM log_fts
-    WHERE nick IN (SELECT nick FROM cteNicks)
-    AND message MATCH (SELECT query FROM cteInput)
+    WHERE message MATCH (SELECT query FROM cteInput)
 } cteOldestMatches {
   SELECT r.*, highlighted
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
@@ -158,7 +152,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
 
     if {$query eq ""} {
       set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
-      set sql "[WITH cteInput cteNicks $cteRecords]\
+      set sql "[WITH cteInput cteRecords $cteRecords]\
         SELECT $cols FROM $cteRecords $WHERE LIMIT :offset, :maxResults"
     } else {
       switch -- $sortOrder {
@@ -167,7 +161,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
         {=} { set cteSortedMatches "cteBestMatches" }
       }
       set hlcols [join [lmap col $fields {expr {$col eq "message" ? "highlighted" : $col}}] ,]
-      set sql "[WITH cteInput cteNicks cteRecords cteMatches $cteSortedMatches]\
+      set sql "[WITH cteInput cteRecords cteMatches $cteSortedMatches]\
         SELECT $hlcols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxResults"
     }
   }
@@ -188,7 +182,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
       # HACK: Flag a result for highlight by appending a sentinel \uFFFF char
       set hlcols [join [lmap col $fields {expr {$col eq "message" ? "(message || CHAR(0xFFFF)) AS message" : $col}}] ,]
     }
-    set sql "[WITH cteInput cteNicks cteRecords cteMatch cteContextBefore cteContextAfter]\
+    set sql "[WITH cteInput cteRecords cteMatch cteContextBefore cteContextAfter]\
       SELECT $cols FROM cteContextBefore $WHERE\
       UNION SELECT $hlcols FROM cteMatch $WHERE\
       UNION SELECT $cols FROM cteContextAfter $WHERE\
