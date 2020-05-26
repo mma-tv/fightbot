@@ -5,7 +5,7 @@ package require log
 package require database
 
 namespace eval ::chanlog {
-  namespace import ::irc::send ::irc::msend ::irc::mpost ::database::loadDatabase
+  namespace import ::irc::send ::irc::msend ::irc::mpost ::irc::msg
 }
 namespace eval ::chanlog::v {
   variable database "chanlog.db"
@@ -17,19 +17,19 @@ namespace eval ::chanlog::v {
 }
 
 variable ::chanlog::v::usage {
-  {Usage: .[.]log[-+=][limit],[>=dateFilter],[+-contextLines],[nickFilter] [query]}
-  {.log1,-3+4,makk|mbp ufc dana}
+  {Usage: .[.]log[-+=][limit],[+-contextLines],[>=dateFilter],[nickFilter] [query]}
+  {.log1,-2+3,makk|mbp ufc dana}
   {* Find 1 message that includes "ufc" and "dana",}
-  {  with 3 lines of context before and 4 lines of context after,}
+  {  with 2 lines of context before and 3 lines of context after,}
   {  from nicknames matching the regular expression /makk|mbp/}
-  {.log =12345 => Find the log message with id 12345}
-  {.log12 (or .log-12) => Fetch last 12 log entries}
-  {.log+2 ufc => Find the oldest 2 messages that include "ufc"}
-  {.log-2 ufc => Find the newest 2 messages that include "ufc"}
-  {.log=2 ufc fight => Find the 2 messages that best match "ufc fight"}
+  {.log =12345 => Find log message with id 12345}
+  {.log10 (or .log-10) => Find last 10 log entries}
+  {.log+2 ufc => Find oldest 2 messages that include "ufc"}
+  {.log-2 ufc => Find newest 2 messages that include "ufc"}
+  {.log=2 ufc fight => Find 2 messages that best match "ufc fight"}
   {.log,>=2020-03-02,<2020-04-01 dana => Filter results by date}
-  {..log => Use two leading dots for verbose output (includes userhosts)}
-  {.logn => Return next set of results from previous search}
+  {..log => Print results with verbose output (includes userhosts)}
+  {.logn => Print next set of results from previous search}
   {End of usage.}
 }
 
@@ -87,7 +87,7 @@ variable ::chanlog::v::cteList [dict create cteInput {
 
 proc ::chanlog::init {{database ""}} {
   set dbFile [expr {$database eq "" ? $v::database : $database}]
-  loadDatabase ::chanlog::db $dbFile $v::dbSetupScript
+  ::database::loadDatabase ::chanlog::db $dbFile $v::dbSetupScript
 }
 
 proc ::chanlog::WITH {args} {
@@ -205,7 +205,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
     if {[info exists v::nextResults($unick!$host)]} {
       searchChanLog {*}$v::nextResults($unick!$host)
     } else {
-      send $unick $dest "You have to search for something first."
+      msg $dest "You have to search for something first. For search options, type .log"
     }
     return $ret
   }
@@ -247,8 +247,12 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
     }
     set v::nextResults($unick!$host) [lappend args [expr {$offset + $numMessages}]]
   } else {
-    array unset v::nextResults($unick!$host)
-    send $unick $dest "No more search results."
+    unset -nocomplain v::nextResults($unick!$host)
+    if {$offset > 0} {
+      msg $dest "No more search results."
+    } else {
+      msg $dest "No matches. For more search options, type .log"
+    }
   }
 
   return $ret
