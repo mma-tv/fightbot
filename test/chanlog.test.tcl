@@ -5,6 +5,7 @@ source [file join $cwd eggdrop-stubs.tcl]
 ::tcl::tm::path add [file normalize [file join $cwd ..]]
 
 package require tcltest
+package require tcltestx
 package require chanlog
 
 namespace eval ::chanlog::test {
@@ -13,6 +14,7 @@ namespace eval ::chanlog::test::v {
 }
 
 namespace import ::tcltest::*
+namespace import ::tcltestx::*
 
 configure -skip {x*}
 
@@ -38,6 +40,7 @@ proc createTable {{cols {}} {values {{}}} {repeat 1}} {
     set row "([join $row ,])"
   }]
   ::chanlog::db eval "DELETE FROM log"
+  ::chanlog::db eval "DELETE FROM sqlite_sequence WHERE name = 'log'";
   ::chanlog::db eval "INSERT INTO log ([join $cols ,]) VALUES [join $rows ,]"
 }
 
@@ -55,63 +58,50 @@ proc pluck {keys list {cols {id date flag nick message}}} {
   return [join [lmap $cols $list {lmap key $keys {set $key}}]]
 }
 
-proc globNoCase {expected actual} {
-  return [string match -nocase $expected $actual]
-}
-customMatch globNoCase [namespace current]::globNoCase
+########################################
 
-oo::class create ChannelIntercept {
-  variable buffer
-
-  method initialize {handle mode} {
-    if {$mode ne "write"} {error "can't handle reading"}
-    return {finalize initialize write}
-  }
-  method finalize {handle} {
-  }
-  method write {handle bytes} {
-    append buffer $bytes
-    return ""
-  }
-  method buffer {} {
-    return $buffer
-  }
-}
-
-proc capture {channel lambda} {
-  set interceptor [ChannelIntercept new]
-  chan push $channel $interceptor
-  apply [list x $lambda] {}
-  chan pop $channel
-  return [$interceptor buffer]
-}
+setup
 
 test init-database "should create empty database" -setup setup -body {
   expr {[file exists $v::database] && ![::chanlog::db onecolumn {SELECT COUNT(*) FROM log}]}
 } -result 1
 
-test log-messages "should log channel messages" -body {
-  ::chanlog::logChannelMessage makk k1@foo.bar.com * #mma-tv "unbelievably awesome"
-  ::chanlog::db eval {
-    SELECT nick, userhost, handle, message FROM log ORDER BY id DESC LIMIT 1
-  } {
-    return [expr {
-      $nick eq "makk" && $userhost eq "k1@foo.bar.com" &&
-      $handle eq "*" && $message eq "unbelievably awesome"
-    }]
-  }
-  0
-} -result 1 -cleanup setup
+test log-messages "should log channel messages" -setup setup -body {
+  set args {makk k1@foo.bar.com * #mma-tv "super cool"}
+  ::chanlog::logChannelMessage {*}$args
+  set vals [::chanlog::db eval {SELECT nick, userhost, handle, '#mma-tv', message FROM log}]
+  expr {[list {*}$vals] == [list {*}$args]}
+} -result 1
+
+test query "should find query terms" -body {
+  createTable {id message} {{1 test} {2 "foo bar"} {3 baz}}
+  pluck id [::chanlog::query ".log bar"]
+} -result 2
 
 test no-results "should return empty list when there are no results" -body {
   createTable
-  ::chanlog::query ".log bogus_nonexistent_word"
+  ::chanlog::query ".log nonexistent_word_xywoacb"
 } -result {}
 
 test query-limits "should support query limits" -body {
-  createTable {} {{}} 10
-  llength [pluck id [::chanlog::query ".log4"]]
+  createTable {message} {{test}} 10
+  llength [pluck id [::chanlog::query ".log4 test"]]
 } -result 4
+
+test query-max-limit-1.0 "should respect query max limit" -body {
+  createTable {message} {{test}} 200
+  llength [pluck id [::chanlog::query ".log200 test"]]
+} -result 100
+
+test query-max-limit-1.1 "should respect query max limit with context" -body {
+  createTable {message} {{test}} 500
+  llength [pluck id [::chanlog::query ".log,-300+300 =250"]]
+} -result 100
+
+test query-limit-with-context "should increase query limit to accommodate context lines" -body {
+  createTable {message} {{test}} 200
+  llength [pluck id [::chanlog::query ".log5,-10+10 =100"]]
+} -result 21
 
 test nick-filter "should support nick filtering" -body {
   createTable {nick} {{foo} {bar} {mbp} {baz} {mbp} {boo}}
@@ -119,14 +109,14 @@ test nick-filter "should support nick filtering" -body {
 } -result {mbp mbp}
 
 test search-order-1.1 "should allow searching in chronological order" -body {
-  createTable {id} {{1} {2} {3} {4}}
+  createTable {id} {{6} {7} {8} {9}}
   pluck id [::chanlog::query ".log+2"]
-} -result {1 2}
+} -result {6 7}
 
 test reverse-order-1.1 "should allow searching in reverse chronological order" -body {
-  createTable {id} {{1} {2} {3} {4}}
+  createTable {id} {{2} {3} {4} {5}}
   pluck id [::chanlog::query ".log-2"]
-} -result {4 3}
+} -result {5 4}
 
 test reverse-order-1.2 "should query in reverse chronological order by default" -body {
   createTable {message} {{first} {second} {third} {fourth}}
@@ -139,14 +129,14 @@ test id-match "should support id matching" -body {
 } -result {four}
 
 test context-lines "should support context lines" -body {
-  createTable {id message} {{1 one} {2 two} {3 unpossible} {4 four} {5 five} {6 six} {7 seven}}
-  pluck id [::chanlog::query ".log,-1+3 unpossible"]
+  createTable {id message} {{1 one} {2 two} {3 whatever} {4 four} {5 five} {6 six} {7 seven}}
+  pluck id [::chanlog::query ".log10,-1+3 whatever"]
 } -result {2 3 4 5 6}
 
 test highlight-match "should highlight matching search terms" -body {
-  createTable {message} {{"great way"} {awesome} {"the only way"} {"bingo bango"} {the}}
-  set output [capture stdout {::chanlog::searchChanLog * * * * ".log the way"}]
-  string match "*\002the\002 only \002way\002*" $output
+  createTable {message} {{"great way"} {awesome} {"the only way"} {"bingo bango"}}
+  set output [capture stdout {::chanlog::searchChanLog * * * * ".log10 the OR way"}]
+  regexp {^[^\n]+:[^\n]*\002the\002 only \002way\002\r?\n[^\n]+:[^\n]*great \002way\002\r?\n$} $output
 } -result 1
 
 test verbose-mode-1.0 "should support verbose mode" -body {
@@ -169,12 +159,12 @@ test help "should return usage help when no args" -body {
 } -result 1 -match globNoCase -output {*usage*}
 
 test boolean-not "should support boolean NOT queries with -term" -body {
-  createTable {message} {
-    {"message one"} {"this is a second message"} {foo}
-    {"message three"} {"message four"} {bar}
+  createTable {id message} {
+    {1 "message one"} {2 "this is a second message"} {3 foo}
+    {4 "message three"} {5 "message four"} {6 bar}
   }
-  llength [pluck message [::chanlog::query ".log10 message -second"]]
-} -result 3
+  pluck id [::chanlog::query ".log10 message -second"]
+} -result {5 4 1}
 
 test boolean-or "should support boolean OR queries" -body {
   createTable {message} {{foo} {"conor fights"} {bar} {baz} {"the ufc"} {fum}}
@@ -224,8 +214,21 @@ test column-align "should properly align id column" -body {
 
 test filter-by-date "should filter by date" -body {
   createTable {date} {{2005-12-01} {2008-01-01} {2019-05-01} {2019-07-03} {2019-08-25} {2020-01-01}}
-  llength [pluck id [::chanlog::query ".log10,>=2019-04-20,<=2019-08-24T23:59:59"]]
-} -result 2
+  pluck date [::chanlog::query ".log+10,>=2019-04-20,<=2019-08-24T23:59:59"]
+} -result {2019-05-01 2019-07-03}
+
+test limit-channel-results-1.0 "should limit results posted in channels" -body {
+  createTable {message} {{test}} 20
+  set output [capture stdout {::chanlog::searchChanLog * * * #mma-tv ".log20 test"}]
+  regexp {^(?:NOTICE[^\n]+\n)+$} $output
+} -result 1
+
+test limit-channel-results-1.1 "should post results to channel if less than public limit" -body {
+  set maxPublic $::chanlog::v::maxPublic
+  createTable {message} {{test}} [expr {$maxPublic * 2}]
+  set output [capture stdout [list ::chanlog::searchChanLog * * * #mma-tv ".log$maxPublic test"]]
+  regexp {^(?:PRIVMSG[^\n]+\n)+$} $output
+} -result 1
 
 test boolean-search "should handle multiple boolean operators properly" -body {
   createTable {message} {{"what became of you"}}
