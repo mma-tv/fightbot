@@ -17,18 +17,19 @@ namespace eval ::chanlog::v {
 }
 
 variable ::chanlog::v::usage {
-  {Usage: .[.]log[-+=][limit],[+-contextLines],[nickFilter] [query]}
-  {.log5,-3+4,makk|mbp conor sucks}
-  {* Find at most 5 log messages that include "conor" and "sucks",}
+  {Usage: .[.]log[-+=][limit],[>=dateFilter],[+-contextLines],[nickFilter] [query]}
+  {.log1,-3+4,makk|mbp ufc dana}
+  {* Find 1 message that includes "ufc" and "dana",}
   {  with 3 lines of context before and 4 lines of context after,}
-  {  from nicknames matching the regular expression "makk|mbp".}
+  {  from nicknames matching the regular expression /makk|mbp/}
   {.log =12345 => Find the log message with id 12345}
   {.log12 (or .log-12) => Fetch last 12 log entries}
   {.log+2 ufc => Find the oldest 2 messages that include "ufc"}
   {.log-2 ufc => Find the newest 2 messages that include "ufc"}
   {.log=2 ufc fight => Find the 2 messages that best match "ufc fight"}
-  {.logn => Return next set of results from previous search}
+  {.log,>=2020-03-02,<2020-04-01 dana => Filter results by date}
   {..log => Use two leading dots for verbose output (includes userhosts)}
+  {.logn => Return next set of results from previous search}
   {End of usage.}
 }
 
