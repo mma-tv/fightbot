@@ -18,10 +18,12 @@ namespace eval ::chanlog::v {
 
 variable ::chanlog::v::usage {
   {Usage: .[.]log[-+=][limit],[+-contextLines],[>=dateFilter],[nickFilter] [query]}
-  {.log1,-2+3,makk|mbp ufc dana}
-  {* Find 1 message that includes "ufc" and "dana",}
+  {.log,-2+3,makk|mbp ufc dana}
+  {* Find most recent message that includes "ufc" and "dana",}
   {  with 2 lines of context before and 3 lines of context after,}
   {  from nicknames matching the regular expression /makk|mbp/}
+  {!!NOTE: Context lines only apply when a single match is displayed.}
+  {.log cowboy OR cerr* -music => Boolean search with wildcards}
   {.log =12345 => Find log message with id 12345}
   {.log10 (or .log-10) => Find last 10 log entries}
   {.log+2 ufc => Find oldest 2 messages that include "ufc"}
@@ -147,7 +149,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   }
 
   if {[regexp {^=(\d+)$} $query m id]} {
-    set sql "SELECT $cols FROM log WHERE id = :id"
+    set sql "SELECT $cols FROM log WHERE id = :id LIMIT :offset, :maxResults"
   } else {
     set query [sanitizeQuery $query]
 
@@ -187,7 +189,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
       SELECT $cols FROM cteContextBefore $WHERE\
       UNION SELECT $hlcols FROM cteMatch $WHERE\
       UNION SELECT $cols FROM cteContextAfter $WHERE\
-      LIMIT :offset, :maxResults"
+      LIMIT :maxResults"
 
     set result [db eval $sql]
   }
