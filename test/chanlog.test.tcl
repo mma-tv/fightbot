@@ -205,6 +205,12 @@ test next-page-1.2 "should only show next results for previous query from nick" 
   ::chanlog::searchChanLog nick2 * * * ".logn"
 } -result 1 -match globNoCase -output {*search for something*}
 
+test next-page-1.3 "should also allow pagination with ..logn" -body {
+  createTable {message} {{"the one"} {foo} {"the two"}}
+  ::chanlog::searchChanLog * * * * ".log1 the"
+  ::chanlog::searchChanLog * * * * "..logn"
+} -result 1 -match glob -output "*two\n*one\n"
+
 test ignore-triggers "should ignore messages with .log commands" -body {
   createTable {message ignored} {{".log the" 1} {"the ufc" 0} {".log blah" 1} {".log" 1} {foo 0}}
   ::chanlog::searchChanLog * * * * ".log the"
