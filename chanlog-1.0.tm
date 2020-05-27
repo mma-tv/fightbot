@@ -217,7 +217,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
   set args [list $unick $host $handle $dest $text $idx]
   set searchId "$unick!$host@$dest"
 
-  if {[regexp {^\.+logn} $cmd]} {
+  if {[regexp {^\.+logn(?:ext)?$} $cmd]} {
     if {[info exists v::nextResults($searchId)]} {
       searchChanLog {*}$v::nextResults($searchId)
     } else {
