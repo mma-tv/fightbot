@@ -12,8 +12,9 @@ foreach cmd {
     switch -glob -- $cmd {
       bind { proc ::$cmd {args} {} }
       unixtime { proc ::$cmd {} { return [clock seconds] } }
+      putdcc { proc ::$cmd {idx text} { puts $text } }
       putlog* - putcmdlog { proc ::$cmd {args} {} }
-      put* { proc ::$cmd {args} { puts [join $args] } }
+      put* { proc ::$cmd {text args} { puts $text } }
       matchattr - isop - isvoice {
         proc ::$cmd {u args} {
           return [string match "*[namespace tail [lindex [info level 0] 0]]" $u]

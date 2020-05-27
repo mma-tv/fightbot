@@ -75,8 +75,14 @@ test log-messages "should log channel messages" -setup setup -body {
 
 test query "should find query terms" -body {
   createTable {id message} {{1 test} {2 "foo bar"} {3 baz}}
-  pluck id [::chanlog::query ".log bar"]
+  pluck id [::chanlog::query ".log1 bar"]
 } -result 2
+
+test dcc-query "should support queries through DCC chat" -body {
+  createTable {id message} {{3 foo} {4 bar} {5 baz}}
+  set output [capture stdout [list ::chanlog::dccSearchChanLog makk 5 ".log1 bar"]]
+  regexp {^[^\n]+ \002bar\002\r?\n$} $output
+} -result 1
 
 test no-results "should return empty list when there are no results" -body {
   createTable

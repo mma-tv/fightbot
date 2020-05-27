@@ -197,23 +197,37 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   return $result
 }
 
-proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
-  set ret [::log::logStackable $unick $host $handle $dest $text]
+proc ::chanlog::post {idx func args} {
+  if {$idx == -1} {
+    return [$func {*}$args]
+  }
+  if {$func eq "msg"} {
+    return [putdcc $idx [lindex $args end]]
+  }
+  foreach line [lindex $args end] {
+    putdcc $idx $line
+  }
+  return 1
+}
+
+proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} {
+  set ret [expr {$offset ? 1 : [::log::logStackable $unick $host $handle $dest $text]}]
   set cmd [lindex [split $text] 0]
   set query [string trim [join [lrange [split $text] 1 end]]]
-  set args [list $unick $host $handle $dest $text]
+  set args [list $unick $host $handle $dest $text $idx]
+  set searchId "$unick!$host@$dest"
 
   if {[string match .logn* $cmd]} {
-    if {[info exists v::nextResults($unick!$host)]} {
-      searchChanLog {*}$v::nextResults($unick!$host)
+    if {[info exists v::nextResults($searchId)]} {
+      searchChanLog {*}$v::nextResults($searchId)
     } else {
-      msg $dest "You have to search for something first. For search options, type .log"
+      post $idx msg $dest "You have to search for something first. For search options, type .log"
     }
     return $ret
   }
 
   if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
-    msend $unick $dest $v::usage
+    post $idx msend $unick $dest $v::usage
     return $ret
   }
 
@@ -243,17 +257,17 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
   set numMessages [llength $messages]
   if {$numMessages > 0} {
     if {$numMessages > $v::maxPublic} {
-      msend $unick $dest $messages
+      post $idx msend $unick $dest $messages
     } else {
-      mpost $dest $messages
+      post $idx mpost $dest $messages
     }
-    set v::nextResults($unick!$host) [lappend args [expr {$offset + $numMessages}]]
+    set v::nextResults($searchId) [lappend args [expr {$offset + $numMessages}]]
   } else {
-    unset -nocomplain v::nextResults($unick!$host)
+    unset -nocomplain v::nextResults($searchId)
     if {$offset > 0} {
-      msg $dest "No more search results."
+      post $idx msg $dest "No more search results."
     } else {
-      msg $dest "No matches. For more search options, type .log"
+      post $idx msg $dest "No matches. For more search options, type .log"
     }
   }
 
@@ -261,6 +275,12 @@ proc ::chanlog::searchChanLog {unick host handle dest text {offset 0}} {
 }
 ::irc::mbind {msgm pubm} - {"% .log*"} ::chanlog::searchChanLog
 ::irc::mbind {msgm pubm} - {"% ..log*"} ::chanlog::searchChanLog
+
+proc ::chanlog::dccSearchChanLog {handle idx text} {
+  searchChanLog $handle dcc $handle $idx $text $idx
+  return 0
+}
+bind dcc n|n l ::chanlog::dccSearchChanLog
 
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
