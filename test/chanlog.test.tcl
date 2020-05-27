@@ -170,8 +170,16 @@ test verbose-mode-1.1 "should print verbose mode" -body {
   ::chanlog::searchChanLog * * * * "..log-10 blah"
 } -result 1 -match glob -output {PRIVMSG * :=*<Rect!k1@foo.bar.com>*=*<+makk!ident@linode.com>*}
 
-test help "should return usage help when no args" -body {
-  ::chanlog::searchChanLog * * * * ".log"
+test help-1.0 "should return usage help when no args" -body {
+  ::chanlog::searchChanLog * * * * ".log   "
+} -result 1 -match globNoCase -output {*usage*}
+
+test help-1.1 "should return usage help for missing args" -body {
+  ::chanlog::searchChanLog * * * * ".log-"
+} -result 1 -match globNoCase -output {*usage*}
+
+test help-1.2 "should return usage help for invalid args" -body {
+  ::chanlog::searchChanLog * * * * ".logn3"
 } -result 1 -match globNoCase -output {*usage*}
 
 test boolean-not "should support boolean NOT queries with -term" -body {
@@ -236,7 +244,7 @@ test column-align "should properly align id column" -body {
 
 test filter-by-date "should filter by date" -body {
   createTable {date} {{2005-12-01} {2008-01-01} {2019-05-01} {2019-07-03} {2019-08-25} {2020-01-01}}
-  pluck date [::chanlog::query ".log+10,>=2019-04-20,<=2019-08-24T23:59:59"]
+  pluck date [::chanlog::query ".log+10,>=2019-04-20,<=2019-08-24T23:59"]
 } -result {2019-05-01 2019-07-03}
 
 test limit-channel-results-1.0 "should limit results posted in channels" -body {

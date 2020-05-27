@@ -18,18 +18,18 @@ namespace eval ::chanlog::v {
 
 variable ::chanlog::v::usage {
   {Usage: .[.]log[-+=][limit],[+-contextLines],[>=dateFilter],[nickFilter] [query]}
-  {.log,-2+3,makk|mbp ufc dana}
-  {* Find most recent message that includes "ufc" and "dana",}
+  {.log,-2+3,kano|bruk ufc jon}
+  {* Find most recent message that includes "ufc" and "jon",}
   {  with 2 lines of context before and 3 lines of context after,}
-  {  from nicknames matching the regular expression /makk|mbp/}
-  {!!NOTE: Context lines only apply when a single match is displayed.}
+  {  from nicknames matching the regular expression /kano|bruk/}
+  {!!NOTE: Context lines only apply when displaying a single match.}
   {.log cowboy OR cerr* -music => Boolean search with wildcards}
   {.log =12345 => Find log message with id 12345}
   {.log10 (or .log-10) => Find last 10 log entries}
   {.log+2 ufc => Find oldest 2 messages that include "ufc"}
   {.log-2 ufc => Find newest 2 messages that include "ufc"}
   {.log=2 ufc fight => Find 2 messages that best match "ufc fight"}
-  {.log,>=2020-03-02,<2020-04-01 dana => Filter results by date}
+  {.log,>=2020-03-02,<2020-04-01T15:30 dana => Filter results by date/time}
   {..log => Print results with verbose output (includes userhosts)}
   {.logn => Print next set of results from previous search}
   {End of usage.}
@@ -139,7 +139,7 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   if {[llength $dateFilters]} {
     set filters {}
     foreach {op date} $dateFilters {
-      if {[string match [regsub -all {\d} $date d]* "dddd-dd-ddTdd:dd:dd"]} {
+      if {[string match [regsub -all {\d} $date d]* "dddd-dd-ddTdd:dd:ddZ"]} {
         lappend filters "date [expr {$op eq "" ? "=" : $op}] DATETIME('$date')"
       }
     }
@@ -221,12 +221,12 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
     if {[info exists v::nextResults($searchId)]} {
       searchChanLog {*}$v::nextResults($searchId)
     } else {
-      post $idx msg $dest "You have to search for something first. For search options, type .log"
+      post $idx msg $dest "You have to search for something first. For options, type .log"
     }
     return $ret
   }
 
-  if {[regexp -nocase {^\.+log[a-z]*(?![-+=]?\d+)$} $cmd] && $query eq ""} {
+  if {[regexp -nocase {^\.+log\s*$} $text] || ![regexp -nocase {^\.+log([-+=]?\d+)?(?:,[^,\s]+)*$} $cmd]} {
     post $idx msend $unick $dest $v::usage
     return $ret
   }
