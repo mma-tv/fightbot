@@ -273,14 +273,16 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
 
   return $ret
 }
-::irc::mbind {msgm pubm} - {"% .log*"} ::chanlog::searchChanLog
-::irc::mbind {msgm pubm} - {"% ..log*"} ::chanlog::searchChanLog
+::irc::mbind {pubm} - {"% .log*"}  ::chanlog::searchChanLog
+::irc::mbind {msgm} n {"% .log*"}  ::chanlog::searchChanLog
+::irc::mbind {pubm} - {"% ..log*"} ::chanlog::searchChanLog
+::irc::mbind {msgm} n {"% ..log*"} ::chanlog::searchChanLog
 
 proc ::chanlog::dccSearchChanLog {handle idx text} {
   searchChanLog $handle dcc $handle $idx $text $idx
   return 0
 }
-bind dcc n|n l ::chanlog::dccSearchChanLog
+bind dcc n l ::chanlog::dccSearchChanLog
 
 proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   set date [clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]
