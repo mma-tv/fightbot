@@ -242,12 +242,8 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
 
   foreach $fields $results {
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
-    if {$hasContextLines} {
-      switch -- $type {
-        before {set msg "< $msg"}
-         match {set msg "= \002[regsub -all \002 $msg ""]\002"}
-         after {set msg "> $msg"}
-      }
+    if {$hasContextLines && $type eq "match"} {
+      set msg "\002[regsub -all \002 $msg ""]\002"
     }
     lappend messages $msg
   }
