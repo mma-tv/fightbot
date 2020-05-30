@@ -54,7 +54,7 @@ proc cleanup {} {
   catch {exec rm -f $v::database}
 }
 
-proc pluck {keys list {cols {id date flag nick message}}} {
+proc pluck {keys list {cols {id date flag nick message type}}} {
   return [join [lmap $cols $list {lmap key $keys {set $key}}]]
 }
 
@@ -78,6 +78,22 @@ test query "should find query terms" -body {
   pluck id [::chanlog::query ".log-1 bar"]
 } -result 2
 
+test id-match "should support id matching" -body {
+  createTable {id message} {{7 seven} {3 three} {9 nine} {4 four} {8 eight}}
+  pluck message [::chanlog::query ".log =4"]
+} -result {four}
+
+test context-lines "should support context lines" -body {
+  createTable {id message} {{1 one} {2 two} {3 whatever} {4 four} {5 five} {6 six} {7 seven}}
+  pluck id [::chanlog::query ".log-10,-1+3 whatever"]
+} -result {2 3 4 5 6}
+
+test highlight-match "should highlight matching search terms" -body {
+  createTable {message} {{"great way"} {awesome} {"the only way"} {"bingo bango"}}
+  set output [capture stdout {::chanlog::searchChanLog * * * * ".log-10 the OR way"}]
+  regexp {^[^\n]+:[^\n]*\002the\002 only \002way\002\r?\n[^\n]+:[^\n]*great \002way\002\r?\n$} $output
+} -result 1
+
 test dcc-query "should support queries through DCC chat" -body {
   createTable {id message} {{3 foo} {4 bar} {5 baz}}
   set output [capture stdout [list ::chanlog::dccSearchChanLog makk 5 ".log-1 bar"]]
@@ -99,9 +115,19 @@ test query-max-limit-1.0 "should respect query max limit" -body {
   llength [pluck id [::chanlog::query ".log-200 test"]]
 } -result 100
 
-test query-max-limit-1.1 "should respect query max limit with context" -body {
+test query-max-limit-1.1 "should return no results if match plus context lines exceed max limit" -body {
   createTable {message} {{test}} 500
   llength [pluck id [::chanlog::query ".log,-300+300 =250"]]
+} -result 0
+
+test query-max-limit-1.2 "should respect query max limit with context" -body {
+  createTable {message} {{test}} 500
+  llength [pluck id [::chanlog::query ".log,-49+50 =250"]]
+} -result 100
+
+test query-max-limit-1.3 "should respect query max limit with context" -body {
+  createTable {message} {{test}} 500
+  llength [pluck id [::chanlog::query ".log,-99 =250"]]
 } -result 100
 
 test query-limit-with-context "should increase query limit to accommodate context lines" -body {
@@ -137,22 +163,6 @@ test sort-default "should respect default sort order" -body {
   set ret1 [pluck message [::chanlog::query ".log2"]]
   set ret2 [pluck message [::chanlog::query ".log${::chanlog::v::defaultSortOrder}2"]]
   expr {$ret1 == $ret2}
-} -result 1
-
-test id-match "should support id matching" -body {
-  createTable {id message} {{7 seven} {3 three} {9 nine} {4 four} {8 eight}}
-  pluck message [::chanlog::query ".log =4"]
-} -result {four}
-
-test context-lines "should support context lines" -body {
-  createTable {id message} {{1 one} {2 two} {3 whatever} {4 four} {5 five} {6 six} {7 seven}}
-  pluck id [::chanlog::query ".log-10,-1+3 whatever"]
-} -result {2 3 4 5 6}
-
-test highlight-match "should highlight matching search terms" -body {
-  createTable {message} {{"great way"} {awesome} {"the only way"} {"bingo bango"}}
-  set output [capture stdout {::chanlog::searchChanLog * * * * ".log-10 the OR way"}]
-  regexp {^[^\n]+:[^\n]*\002the\002 only \002way\002\r?\n[^\n]+:[^\n]*great \002way\002\r?\n$} $output
 } -result 1
 
 test verbose-mode-1.0 "should support verbose mode" -body {
@@ -223,7 +233,19 @@ test next-page-1.2 "should only show next results for previous query from nick" 
   ::chanlog::searchChanLog nick2 * * * ".logn"
 } -result 1 -match globNoCase -output {*search for something*}
 
-test next-page-1.3 "should also allow pagination with ..logn" -body {
+test next-page-1.3 "should paginate with context lines" -body {
+  createTable {id message} {
+    {1 one} {2 "the two"} {3 three} {4 four}
+    {5 five} {6 "the six"} {7 seven} {8 eight} {9 nine}
+  }
+  set res1 [capture stdout {::chanlog::searchChanLog * * * * ".log-1,-1+1 the"}]
+  set res2 [capture stdout {::chanlog::searchChanLog * * * * ".logn"}]
+  set ret1 [regexp {^[^\n]+five\r?\n[^\n]+six.?\r?\n[^\n]+seven\r?\n$} $res1]
+  set ret2 [regexp {^[^\n]+one\r?\n[^\n]+two.?\r?\n[^\n]+three\r?\n$} $res2]
+  expr {$ret1 && $ret2}
+} -result 1
+
+test next-page-1.4 "should also allow pagination with ..logn" -body {
   createTable {message} {{"the one"} {foo} {"the two"}}
   ::chanlog::searchChanLog * * * * ".log-1 the"
   ::chanlog::searchChanLog * * * * "..logn"

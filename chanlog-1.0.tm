@@ -11,7 +11,7 @@ namespace eval ::chanlog::v {
   variable database "chanlog.db"
   variable dbSetupScript "chanlog.sql"
   variable maxPublic 3     ;# max results to post to channel
-  variable maxLimit 100    ;# max search results
+  variable maxResults 100    ;# max search results
   variable defaultLimit 1  ;# default number of search results
   variable defaultSortOrder "-" ;# -(desc), +(asc), =(best match)
 }
@@ -37,51 +37,54 @@ variable ::chanlog::v::usage {
 
 variable ::chanlog::v::cteList [dict create cteInput {
   SELECT
-    :id AS id,
     :query AS query,
+    :matchId AS matchId,
     :includedNicks AS includedNicks,
     :maxLinesBefore AS maxLinesBefore,
     :maxLinesAfter AS maxLinesAfter
+} cteIds {
+  SELECT *, 'id' AS type
+    FROM log
 } cteRecords {
   SELECT *
     FROM log
     WHERE nick REGEXP (SELECT includedNicks FROM cteInput)
       AND NOT ignored
 } cteOldestRecords {
-  SELECT *
+  SELECT *, 'old' AS type
     FROM cteRecords
     ORDER BY id ASC
 } cteNewestRecords {
-  SELECT *
+  SELECT *, 'new' AS type
     FROM cteRecords
     ORDER BY id DESC
 } cteMatches {
-  SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS highlighted
+  SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS marked_message, 'match' AS type
     FROM log_fts
     WHERE message MATCH (SELECT query FROM cteInput)
 } cteOldestMatches {
-  SELECT r.*, highlighted
+  SELECT *
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id ASC
 } cteNewestMatches {
-  SELECT r.*, highlighted
+  SELECT *
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY r.id DESC
 } cteBestMatches {
-  SELECT r.*, highlighted
+  SELECT *
     FROM cteRecords r JOIN cteMatches m ON r.id = m.id
     ORDER BY m.rank
 } cteMatch {
   SELECT *
     FROM cteRecords
-    WHERE id = (SELECT id FROM cteInput)
+    WHERE id = (SELECT matchId FROM cteInput)
 } cteContextBefore {
-  SELECT *
+  SELECT *, 'before' AS type
     FROM cteRecords
     WHERE id < (SELECT id FROM cteMatch)
     ORDER BY id DESC LIMIT (SELECT maxLinesBefore FROM cteInput)
 } cteContextAfter {
-  SELECT *
+  SELECT *, 'after' AS type
     FROM cteRecords
     WHERE id > (SELECT id FROM cteMatch)
     ORDER BY id ASC LIMIT (SELECT maxLinesAfter FROM cteInput)
@@ -112,21 +115,21 @@ proc ::chanlog::sanitizeQuery {text} {
   return [string trim $text]
 }
 
-proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
+proc ::chanlog::query {text {fields {id date flag nick message type}} {offset 0}} {
   set cmd [lindex [split $text] 0]
   set query [string trim [join [lrange [split $text] 1 end]]]
   set cols [join $fields ", "]
 
-  set maxResults $v::defaultLimit
+  set maxMatches $v::defaultLimit
   set dateFilters {}
   set contextLines ""
   set includedNicks ""
   set WHERE ""
 
   set args [split $cmd ,]
-  regexp {([-+=]?)((?:\d+)?)$} [lindex $args 0] m sortOrder maxResults
+  regexp {([-+=]?)((?:\d+)?)$} [lindex $args 0] m sortOrder maxMatches
   set sortOrder [expr {$sortOrder eq "" ? $v::defaultSortOrder : $sortOrder}]
-  set maxResults [expr {min($maxResults eq "" ? $v::defaultLimit : $maxResults, $v::maxLimit)}]
+  set maxMatches [expr {min($maxMatches eq "" ? $v::defaultLimit : $maxMatches, $v::maxResults)}]
 
   foreach arg [lrange $args 1 end] {
     switch -regexp -matchvar m -- $arg {
@@ -149,65 +152,55 @@ proc ::chanlog::query {text {fields {id date flag nick message}} {offset 0}} {
   }
 
   if {[regexp {^=(\d+)$} $query m id]} {
-    set sql "SELECT $cols FROM log WHERE id = :id LIMIT :offset, :maxResults"
+    set sql "[WITH cteIds] SELECT $cols FROM cteIds WHERE id = :id"
   } else {
     set query [sanitizeQuery $query]
 
     if {$query eq ""} {
       set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
       set sql "[WITH cteInput cteRecords $cteRecords]\
-        SELECT $cols FROM $cteRecords $WHERE LIMIT :offset, :maxResults"
+        SELECT $cols FROM $cteRecords $WHERE LIMIT :offset, :maxMatches"
     } else {
       switch -- $sortOrder {
         {-} { set cteSortedMatches "cteNewestMatches" }
         {+} { set cteSortedMatches "cteOldestMatches" }
         {=} { set cteSortedMatches "cteBestMatches" }
       }
-      set hlcols [join [lmap col $fields {expr {$col eq "message" ? "highlighted" : $col}}] ,]
+      set ctxcols [regsub {\mmessage\M} $cols marked_message]
       set sql "[WITH cteInput cteRecords cteMatches $cteSortedMatches]\
-        SELECT $hlcols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxResults"
+        SELECT $ctxcols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxMatches"
     }
   }
 
-  set result [db eval $sql]
-  set totalRows [expr {[llength $result] / [llength $cols]}]
+  set maxLinesBefore [regexp -inline -- {-\d+} $contextLines]
+  set maxLinesAfter [regexp -inline -- {\+\d+} $contextLines]
+  set maxLinesBefore [expr {($maxLinesBefore ne "" && $maxLinesBefore < 0) ? abs($maxLinesBefore) : 0}]
+  set maxLinesAfter [expr {($maxLinesAfter > 0) ? $maxLinesAfter : 0}]
+  set numFields [llength $fields]
+  set totalLines 0
+  set results {}
 
-  if {$totalRows == 1 && $contextLines ne ""} {
-    set id [lindex $result 0]
-    set maxLinesBefore [regexp -inline -- {-\d+} $contextLines]
-    set maxLinesAfter [regexp -inline -- {\+\d+} $contextLines]
-    set maxLinesBefore [expr {($maxLinesBefore ne "" && $maxLinesBefore < 0) ? abs($maxLinesBefore) : 0}]
-    set maxLinesAfter [expr {($maxLinesAfter > 0) ? $maxLinesAfter : 0}]
-    set maxResults [expr {min(max($maxLinesBefore + $maxLinesAfter + 1, $maxResults), $v::maxLimit)}]
-
-    set hlcols $cols
-    if {$maxLinesBefore || $maxLinesAfter} {
-      # HACK: Flag a result for highlight by appending a sentinel \uFFFF char
-      set hlcols [join [lmap col $fields {expr {$col eq "message" ? "(message || CHAR(0xFFFF)) AS message" : $col}}] ,]
+  foreach $fields [db eval $sql] {
+    set match [lmap field $fields {set $field}]
+    lassign {{} {}} before after
+    set matchId $id
+    set matchLines 1
+    foreach {var context} {before cteContextBefore after cteContextAfter} {
+      set sql "[WITH cteInput cteRecords cteMatch $context]\
+        SELECT $cols FROM $context $WHERE LIMIT :v::maxResults - 1"
+      set $var [db eval $sql]
+      incr matchLines [expr {[llength [set $var]] / $numFields}]
     }
-    set sql "[WITH cteInput cteRecords cteMatch cteContextBefore cteContextAfter]\
-      SELECT $cols FROM cteContextBefore $WHERE\
-      UNION SELECT $hlcols FROM cteMatch $WHERE\
-      UNION SELECT $cols FROM cteContextAfter $WHERE\
-      LIMIT :maxResults"
-
-    set result [db eval $sql]
+    if {($totalLines + $matchLines) <= $v::maxResults} {
+      lappend results {*}[concat $before $match $after]
+      incr totalLines $matchLines
+    }
+    if {$totalLines >= $v::maxResults} {
+      break
+    }
   }
 
-  return $result
-}
-
-proc ::chanlog::post {idx func args} {
-  if {$idx == -1} {
-    return [$func {*}$args]
-  }
-  if {$func eq "msg"} {
-    return [putdcc $idx [lindex $args end]]
-  }
-  foreach line [lindex $args end] {
-    putdcc $idx $line
-  }
-  return 1
+  return $results
 }
 
 proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} {
@@ -231,37 +224,41 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
     return $ret
   }
 
-  set totalResults 0
   set fmt {=%d [%s] <%s%s> %s}
-  set fields {id date flag nick message}
+  set fields {id date flag nick message type}
   if {[string match ..* $cmd]} { ;# verbose output
     set fmt {=%d [%s] <%s%s!%s> %s}
-    set fields {id date flag nick userhost message}
+    set fields {id date flag nick userhost message type}
   }
 
   set results [query $text $fields $offset]
-  set maxId 0
-  foreach $fields $results {
-    set maxId [expr {max($id, $maxId)}]
-  }
-  regsub {^=%} $fmt "\&-[string length $maxId]" fmt
-
+  set numFields [llength $fields]
+  set numMessages [expr {[llength $results] / $numFields}]
+  set numMatches [llength [lsearch -all [lmap $fields $results {set type}] "match"]]
+  set hasContextLines [expr {$numMessages > $numMatches}]
+  set maxId [tcl::mathfunc::max 0 {*}[lmap $fields $results {set id}]]
+  set fmt [regsub {^=%} $fmt "\&-[string length $maxId]"]
   set messages {}
+
   foreach $fields $results {
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
-    # HACK: If sentinel character is found, remove it and highlight whole line
-    regsub "^(.*)\uFFFF(.*)$" $msg "\002\\1\\2\002" msg
+    if {$hasContextLines} {
+      switch -- $type {
+        before {set msg "< $msg"}
+         match {set msg "= \002[regsub -all \002 $msg ""]\002"}
+         after {set msg "> $msg"}
+      }
+    }
     lappend messages $msg
   }
 
-  set numMessages [llength $messages]
   if {$numMessages > 0} {
     if {$numMessages > $v::maxPublic} {
       post $idx msend $unick $dest $messages
     } else {
       post $idx mpost $dest $messages
     }
-    set v::nextResults($searchId) [lappend args [expr {$offset + $numMessages}]]
+    set v::nextResults($searchId) [lappend args [expr {$offset + $numMatches}]]
   } else {
     unset -nocomplain v::nextResults($searchId)
     if {$offset > 0} {
@@ -296,4 +293,16 @@ proc ::chanlog::logChannelMessage {nick userhost handle channel message} {
   }
 }
 ::irc::mbind pubm - * ::chanlog::logChannelMessage
-return
+
+proc ::chanlog::post {idx func args} {
+  if {$idx == -1} {
+    return [$func {*}$args]
+  }
+  if {$func eq "msg"} {
+    return [putdcc $idx [lindex $args end]]
+  }
+  foreach line [lindex $args end] {
+    putdcc $idx $line
+  }
+  return 1
+}
