@@ -251,9 +251,9 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
     if {$hasContextLines} {
       switch -- $context {
-        before { set msg "- $msg" }
-        match  { set msg [regsub {^.+?>} "= $msg" "\002&\002"] }
-        after  { set msg "+ $msg" }
+        before  { set msg "- $msg" }
+        after   { set msg "+ $msg" }
+        default { set msg [regsub {^.+?>} "= $msg" "\002&\002"] }
       }
     }
     lappend messages $msg
