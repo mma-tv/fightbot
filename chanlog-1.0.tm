@@ -248,6 +248,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
   set messages {}
 
   foreach $fields $results {
+    set date [formatDate $date]
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
     if {$hasContextLines && $context eq "match"} {
       set msg "\002[regsub -all \002 $msg ""]\002"
@@ -306,4 +307,10 @@ proc ::chanlog::post {idx func args} {
     putdcc $idx $line
   }
   return 1
+}
+
+proc ::chanlog::formatDate {{date now}} {
+  set date [string tolower [clock format [clock scan $date] -format "%m/%d %I:%M:%S %p"]]
+  #set date [string tolower [regsub -all {(^|/| )0} $date {\1}]]
+  return $date
 }
