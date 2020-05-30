@@ -22,9 +22,8 @@ variable ::chanlog::v::usage {
   {* Find most recent message that includes "ufc" and "jon",}
   {  with 2 lines of context before and 3 lines of context after,}
   {  from nicknames matching the regular expression /kano|bruk/}
-  {!!NOTE: Context lines only apply when displaying a single match.}
   {.log cowboy OR cerr* -music => Boolean search with wildcards}
-  {.log =12345 => Find log message with id 12345}
+  {.log @12345 => Find log message with id 12345}
   {.log10 (or .log-10) => Find last 10 log entries}
   {.log+2 ufc => Find oldest 2 messages that include "ufc"}
   {.log-2 ufc => Find newest 2 messages that include "ufc"}
@@ -156,7 +155,7 @@ proc ::chanlog::query {text {fields {id date flag nick message context}} {offset
     }
   }
 
-  if {[regexp {^=(\d+)$} $query m id]} {
+  if {[regexp {^@(\d+)$} $query m id]} {
     set cols [cols $fields context "'match'"]
     set sql "SELECT $cols FROM log WHERE id = :id LIMIT :offset, :maxMatches"
   } else {
@@ -231,27 +230,31 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
     return $ret
   }
 
-  set fmt {=%d [%s] <%s%s> %s}
+  set fmt {%d [%s] <%s%s> %s}
   set fields {id date flag nick message context}
   if {[string match ..* $cmd]} { ;# verbose output
-    set fmt {=%d [%s] <%s%s!%s> %s}
+    set fmt {%d [%s] <%s%s!%s> %s}
     set fields {id date flag nick userhost message context}
   }
 
   set results [query $text $fields $offset]
+  set results [formatDates $results $fields]
   set numFields [llength $fields]
   set numMessages [expr {[llength $results] / $numFields}]
   set numMatches [llength [lsearch -all -not -regexp [lmap $fields $results {set context}] {before|after}]]
   set hasContextLines [expr {$numMessages > $numMatches}]
   set maxId [tcl::mathfunc::max 0 {*}[lmap $fields $results {set id}]]
-  set fmt [regsub {^=%} $fmt "\&-[string length $maxId]"]
+  set fmt [regsub {^%} $fmt "\&-[string length $maxId]"]
   set messages {}
 
   foreach $fields $results {
-    set date [formatDate $date]
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
-    if {$hasContextLines && $context eq "match"} {
-      set msg "\002[regsub -all \002 $msg ""]\002"
+    if {$hasContextLines} {
+      switch -- $context {
+        before { set msg "- $msg" }
+        match  { set msg [regsub {^.+?>} "= $msg" "\002&\002"] }
+        after  { set msg "+ $msg" }
+      }
     }
     lappend messages $msg
   }
@@ -309,8 +312,18 @@ proc ::chanlog::post {idx func args} {
   return 1
 }
 
-proc ::chanlog::formatDate {{date now}} {
-  set date [string tolower [clock format [clock scan $date] -format "%m/%d %I:%M:%S %p"]]
-  #set date [string tolower [regsub -all {(^|/| )0} $date {\1}]]
-  return $date
+proc ::chanlog::formatDates {results fields} {
+  set dateFormat "%m/%d %I:%M:%S %p"
+  set currentYear [clock format [clock scan now] -format "%Y"]
+  foreach $fields $results {
+    if {[clock format [clock scan $date] -format "%Y"] ne $currentYear} {
+      set dateFormat "%m/%d/%Y %I:%M:%S %p"
+      break
+    }
+  }
+  return [join [lmap $fields $results {
+    set date [clock format [clock scan $date] -format $dateFormat]
+    set date [string tolower [regsub { 0} $date "  "]]
+    lmap field $fields {set $field}
+  }]]
 }

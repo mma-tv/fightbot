@@ -80,7 +80,7 @@ test query "should find query terms" -body {
 
 test id-match "should support id matching" -body {
   createTable {id message} {{7 seven} {3 three} {9 nine} {4 four} {8 eight}}
-  pluck message [::chanlog::query ".log =4"]
+  pluck message [::chanlog::query ".log @4"]
 } -result {four}
 
 test context-lines "should support context lines" -body {
@@ -117,22 +117,22 @@ test query-max-limit-1.0 "should respect query max limit" -body {
 
 test query-max-limit-1.1 "should return no results if match plus context lines exceed max limit" -body {
   createTable {message} {{test}} 500
-  llength [pluck id [::chanlog::query ".log,-300+300 =250"]]
+  llength [pluck id [::chanlog::query ".log,-300+300 @250"]]
 } -result 0
 
 test query-max-limit-1.2 "should respect query max limit with context" -body {
   createTable {message} {{test}} 500
-  llength [pluck id [::chanlog::query ".log,-49+50 =250"]]
+  llength [pluck id [::chanlog::query ".log,-49+50 @250"]]
 } -result 100
 
 test query-max-limit-1.3 "should respect query max limit with context" -body {
   createTable {message} {{test}} 500
-  llength [pluck id [::chanlog::query ".log,-99 =250"]]
+  llength [pluck id [::chanlog::query ".log,-99 @250"]]
 } -result 100
 
 test query-limit-with-context "should increase query limit to accommodate context lines" -body {
   createTable {message} {{test}} 200
-  llength [pluck id [::chanlog::query ".log-5,-10+10 =100"]]
+  llength [pluck id [::chanlog::query ".log-5,-10+10 @100"]]
 } -result 21
 
 test nick-filter "should support nick filtering" -body {
@@ -178,7 +178,7 @@ test verbose-mode-1.1 "should print verbose mode" -body {
     {{} Rect k1@foo.bar.com "foo blah bluh"}
   }
   ::chanlog::searchChanLog * * * * "..log-10 blah"
-} -result 1 -match glob -output {PRIVMSG * :=*<Rect!k1@foo.bar.com>*=*<+makk!ident@linode.com>*}
+} -result 1 -match glob -output "PRIVMSG *<Rect!k1@foo.bar.com>*\nPRIVMSG *<+makk!ident@linode.com>*"
 
 test help-1.0 "should return usage help when no args" -body {
   ::chanlog::searchChanLog * * * * ".log   "
