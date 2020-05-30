@@ -42,24 +42,21 @@ variable ::chanlog::v::cteList [dict create cteInput {
     :includedNicks AS includedNicks,
     :maxLinesBefore AS maxLinesBefore,
     :maxLinesAfter AS maxLinesAfter
-} cteIds {
-  SELECT *, 'id' AS type
-    FROM log
 } cteRecords {
   SELECT *
     FROM log
     WHERE nick REGEXP (SELECT includedNicks FROM cteInput)
       AND NOT ignored
 } cteOldestRecords {
-  SELECT *, 'old' AS type
+  SELECT *
     FROM cteRecords
     ORDER BY id ASC
 } cteNewestRecords {
-  SELECT *, 'new' AS type
+  SELECT *
     FROM cteRecords
     ORDER BY id DESC
 } cteMatches {
-  SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS marked_message, 'match' AS type
+  SELECT id, rank, highlight(log_fts, 2, CHAR(2), CHAR(2)) AS marked_message
     FROM log_fts
     WHERE message MATCH (SELECT query FROM cteInput)
 } cteOldestMatches {
@@ -79,12 +76,12 @@ variable ::chanlog::v::cteList [dict create cteInput {
     FROM cteRecords
     WHERE id = (SELECT matchId FROM cteInput)
 } cteContextBefore {
-  SELECT *, 'before' AS type
+  SELECT *
     FROM cteRecords
     WHERE id < (SELECT id FROM cteMatch)
     ORDER BY id DESC LIMIT (SELECT maxLinesBefore FROM cteInput)
 } cteContextAfter {
-  SELECT *, 'after' AS type
+  SELECT *
     FROM cteRecords
     WHERE id > (SELECT id FROM cteMatch)
     ORDER BY id ASC LIMIT (SELECT maxLinesAfter FROM cteInput)
@@ -96,11 +93,20 @@ proc ::chanlog::init {{database ""}} {
 }
 
 proc ::chanlog::WITH {args} {
-  set ctes {}
-  foreach cte $args {
-    lappend ctes "$cte AS ([dict get $v::cteList $cte])"
-  }
+  set ctes [lmap cte $args {set x "$cte AS ([dict get $v::cteList $cte])"}]
   return "WITH [join $ctes ,]"
+}
+
+proc ::chanlog::cols {fields args} {
+  return [join [lmap field $fields {
+    foreach {old new} [concat $args context "''"] {
+      if {$old eq $field} {
+        set field "$new AS $old"
+        break
+      }
+    }
+    set field
+  }] ,]
 }
 
 proc ::chanlog::sanitizeQuery {text} {
@@ -115,10 +121,9 @@ proc ::chanlog::sanitizeQuery {text} {
   return [string trim $text]
 }
 
-proc ::chanlog::query {text {fields {id date flag nick message type}} {offset 0}} {
+proc ::chanlog::query {text {fields {id date flag nick message context}} {offset 0}} {
   set cmd [lindex [split $text] 0]
   set query [string trim [join [lrange [split $text] 1 end]]]
-  set cols [join $fields ", "]
 
   set maxMatches $v::defaultLimit
   set dateFilters {}
@@ -152,23 +157,24 @@ proc ::chanlog::query {text {fields {id date flag nick message type}} {offset 0}
   }
 
   if {[regexp {^=(\d+)$} $query m id]} {
-    set sql "[WITH cteIds] SELECT $cols FROM cteIds WHERE id = :id"
+    set cols [cols $fields context "'match'"]
+    set sql "SELECT $cols FROM log WHERE id = :id LIMIT :offset, :maxMatches"
   } else {
     set query [sanitizeQuery $query]
 
     if {$query eq ""} {
       set cteRecords [expr {$sortOrder eq "+" ? "cteOldestRecords" : "cteNewestRecords"}]
       set sql "[WITH cteInput cteRecords $cteRecords]\
-        SELECT $cols FROM $cteRecords $WHERE LIMIT :offset, :maxMatches"
+        SELECT [cols $fields] FROM $cteRecords $WHERE LIMIT :offset, :maxMatches"
     } else {
       switch -- $sortOrder {
         {-} { set cteSortedMatches "cteNewestMatches" }
         {+} { set cteSortedMatches "cteOldestMatches" }
         {=} { set cteSortedMatches "cteBestMatches" }
       }
-      set ctxcols [regsub {\mmessage\M} $cols marked_message]
+      set cols [cols $fields message marked_message context "'match'"]
       set sql "[WITH cteInput cteRecords cteMatches $cteSortedMatches]\
-        SELECT $ctxcols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxMatches"
+        SELECT $cols FROM $cteSortedMatches $WHERE LIMIT :offset, :maxMatches"
     }
   }
 
@@ -185,11 +191,12 @@ proc ::chanlog::query {text {fields {id date flag nick message type}} {offset 0}
     lassign {{} {}} before after
     set matchId $id
     set matchLines 1
-    foreach {var context} {before cteContextBefore after cteContextAfter} {
-      set sql "[WITH cteInput cteRecords cteMatch $context]\
-        SELECT $cols FROM $context $WHERE LIMIT :v::maxResults - 1"
-      set $var [db eval $sql]
-      incr matchLines [expr {[llength [set $var]] / $numFields}]
+    foreach {context cteContext} {before cteContextBefore after cteContextAfter} {
+      set cols [cols $fields context "'$context'"]
+      set sql "[WITH cteInput cteRecords cteMatch $cteContext]\
+        SELECT $cols FROM $cteContext $WHERE LIMIT :v::maxResults - 1"
+      set $context [db eval $sql]
+      incr matchLines [expr {[llength [set $context]] / $numFields}]
     }
     if {($totalLines + $matchLines) <= $v::maxResults} {
       lappend results {*}[concat $before $match $after]
@@ -219,22 +226,22 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
     return $ret
   }
 
-  if {[regexp -nocase {^\.+log\s*$} $text] || ![regexp -nocase {^\.+log([-+=]?\d+)?(?:,[^,\s]+)*$} $cmd]} {
+  if {[regexp -nocase {^\.+log\s*$} $text] || ![regexp -nocase {^\.+log[-+=]?(?:\d+)?(?:,[^,\s]+)*$} $cmd]} {
     post $idx msend $unick $dest $v::usage
     return $ret
   }
 
   set fmt {=%d [%s] <%s%s> %s}
-  set fields {id date flag nick message type}
+  set fields {id date flag nick message context}
   if {[string match ..* $cmd]} { ;# verbose output
     set fmt {=%d [%s] <%s%s!%s> %s}
-    set fields {id date flag nick userhost message type}
+    set fields {id date flag nick userhost message context}
   }
 
   set results [query $text $fields $offset]
   set numFields [llength $fields]
   set numMessages [expr {[llength $results] / $numFields}]
-  set numMatches [llength [lsearch -all [lmap $fields $results {set type}] "match"]]
+  set numMatches [llength [lsearch -all -not -regexp [lmap $fields $results {set context}] {before|after}]]
   set hasContextLines [expr {$numMessages > $numMatches}]
   set maxId [tcl::mathfunc::max 0 {*}[lmap $fields $results {set id}]]
   set fmt [regsub {^=%} $fmt "\&-[string length $maxId]"]
@@ -242,7 +249,7 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
 
   foreach $fields $results {
     set msg [format $fmt {*}[lmap field $fields {set $field}]]
-    if {$hasContextLines && $type eq "match"} {
+    if {$hasContextLines && $context eq "match"} {
       set msg "\002[regsub -all \002 $msg ""]\002"
     }
     lappend messages $msg
@@ -266,10 +273,8 @@ proc ::chanlog::searchChanLog {unick host handle dest text {idx -1} {offset 0}} 
 
   return $ret
 }
-::irc::mbind {pubm} - {"% .log*"}  ::chanlog::searchChanLog
-::irc::mbind {msgm} n {"% .log*"}  ::chanlog::searchChanLog
-::irc::mbind {pubm} - {"% ..log*"} ::chanlog::searchChanLog
-::irc::mbind {msgm} n {"% ..log*"} ::chanlog::searchChanLog
+::irc::mbind {pubm} - {"% .log*" "% ..log*"} ::chanlog::searchChanLog
+::irc::mbind {msgm} n {"% .log*" "% ..log*"} ::chanlog::searchChanLog
 
 proc ::chanlog::dccSearchChanLog {handle idx text} {
   searchChanLog $handle dcc $handle $idx $text $idx

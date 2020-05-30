@@ -54,7 +54,7 @@ proc cleanup {} {
   catch {exec rm -f $v::database}
 }
 
-proc pluck {keys list {cols {id date flag nick message type}}} {
+proc pluck {keys list {cols {id date flag nick message context}}} {
   return [join [lmap $cols $list {lmap key $keys {set $key}}]]
 }
 
@@ -184,11 +184,7 @@ test help-1.0 "should return usage help when no args" -body {
   ::chanlog::searchChanLog * * * * ".log   "
 } -result 1 -match globNoCase -output {*usage*}
 
-test help-1.1 "should return usage help for missing args" -body {
-  ::chanlog::searchChanLog * * * * ".log-"
-} -result 1 -match globNoCase -output {*usage*}
-
-test help-1.2 "should return usage help for invalid args" -body {
+test help-1.1 "should return usage help for invalid args" -body {
   ::chanlog::searchChanLog * * * * ".logn3"
 } -result 1 -match globNoCase -output {*usage*}
 
