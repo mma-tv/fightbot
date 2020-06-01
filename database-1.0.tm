@@ -1,5 +1,6 @@
 ::tcl::tm::path add [file dirname [info script]]
 
+package require sqlite3
 package require log
 
 namespace eval ::database {
@@ -8,20 +9,11 @@ namespace eval ::database {
 }
 
 proc ::database::loadDatabase {db database {sqlScripts {}}} {
-    global tcl_platform
-
     foreach item [concat $database $sqlScripts] {
         catch {exec chmod 600 $item}
     }
 
-    if {[catch {
-        if {$tcl_platform(platform) eq "unix"} {
-            load "[pwd]/tclsqlite3.so" "tclsqlite3"
-        } else {
-            load "[pwd]/tclsqlite3.dll" "tclsqlite3"
-        }
-        sqlite3 $db $database
-    } error]} {
+    if {[catch {sqlite3 $db $database} error]} {
         return -code error "*** Failed to open database '$database': $error"
     }
 
