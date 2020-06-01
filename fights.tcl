@@ -1330,9 +1330,14 @@ proc announceResult {unick host handle dest result} {
                             you are the [u]best fight picker[s [llength $bestNicks]][/u] for $eventName!\
                             Step forward and be recognized."
 
-                        foreach nick $bestNicks {
-                            foreach chan [channels] {
-                                if {[channel get $chan $chanFlag]} {
+                        set topicMessage "🏆 Latest Winner[s [llength $bestNicks]]: [join $bestNicks ", "] 🏆"
+
+                        foreach chan [channels] {
+                            if {[channel get $chan $chanFlag]} {
+                                set newTopic [string trim [regsub {\s*🏆[^🏆]+(?:🏆|$)\s*|$} [topic $chan] " $topicMessage "]]
+                                putserv "TOPIC $chan :$newTopic"
+
+                                foreach nick $bestNicks {
                                     putserv "MODE $chan +v $nick"
                                 }
                             }
