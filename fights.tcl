@@ -1330,7 +1330,7 @@ proc announceResult {unick host handle dest result} {
                             you are the [u]best fight picker[s [llength $bestNicks]][/u] for $eventName!\
                             Step forward and be recognized."
 
-                        set topicMessage "🏆 Latest Winner[s [llength $bestNicks]]: [join $bestNicks ", "] 🏆"
+                        set topicMessage "🏆 Latest Winner[s [llength $bestNicks]] ($bestWins-$bestLosses): [join $bestNicks ", "] 🏆"
 
                         foreach chan [channels] {
                             if {[channel get $chan $chanFlag]} {
