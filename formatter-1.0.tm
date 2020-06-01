@@ -1,5 +1,11 @@
 namespace eval ::formatter {
-    namespace export tabulate s
+    namespace export tabulate s toSmallCaps
+}
+namespace eval ::formatter::v {
+  variable smallCapsMap {
+    a ᴀ b ʙ c ᴄ d ᴅ e ᴇ f ғ g ɢ h ʜ i ɪ j ᴊ k ᴋ l ʟ m ᴍ
+    n ɴ o ᴏ p ᴘ q ǫ r ʀ s s t ᴛ u ᴜ v ᴠ w ᴡ x x y ʏ z ᴢ
+  }
 }
 
 proc ::formatter::tabulate {rows {separator " | "} {maxColSizes {}}} {
@@ -80,4 +86,8 @@ proc ::formatter::closeDanglingCtrlCodes {str} {
 
 proc ::formatter::s {quantity {suffix "s"}} {
     return [expr {$quantity == 1 ? "" : $suffix}]
+}
+
+proc ::formatter::toSmallCaps {text} {
+  return [string map $v::smallCapsMap [string tolower $text]]
 }

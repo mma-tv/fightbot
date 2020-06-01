@@ -15,7 +15,8 @@ package require formatter
 
 namespace eval ::sherdog {
     namespace export query parse print printSummary
-    namespace import ::ctrlCodes::* ::formatter::tabulate
+    namespace import ::ctrlCodes::*
+    namespace import ::formatter::tabulate ::formatter::s ::formatter::toSmallCaps
 
     variable USE_CACHE true
     variable CACHE_EXPIRATION 90 ;# minutes
@@ -234,7 +235,7 @@ proc ::sherdog::printSummary {fighter {limit 0} {maxColSizes {*}} {showNextOppon
     dict with fighter {
         add output "[b]%s[/b]%s%s %s%s %s" $name\
             [expr {$nickname eq "" ? "" : " \"$nickname\""}]\
-            [countryCode $nationality { [%s]}] $record\
+            [countryCode $nationality { %s}] $record\
             [expr {$age eq "" ? "" : " ${age}yo"}] $url
     }
 
@@ -298,7 +299,7 @@ proc ::sherdog::countryCode {nationality {fmt "%s"}} {
         foreach expr [list $c "${c}*" "*${c}" "*${c}*"] {
             set code [lindex [array get countries $expr] 1]
             if {$code ne ""} {
-                return [format $fmt $code]
+                return [format $fmt [toSmallCaps $code]]
             }
         }
         putlog "sherdog::countryCode() NO MATCH FOR $nationality"
@@ -323,7 +324,7 @@ proc ::sherdog::relativeTime {date {prefix "in "} {useShortFormat false}} {
         return "$prefix$time[string index $unit 0]"
     }
     if {$time > 0} {
-        return "$prefix$time $unit[expr {$time == 1 ? "" : "s"}]"
+        return "$prefix$time $unit[s $time]"
     }
     return ""
 }
