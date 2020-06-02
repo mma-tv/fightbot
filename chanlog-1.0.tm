@@ -193,7 +193,7 @@ proc ::chanlog::query {text {fields {id date flag nick message context}} {offset
     foreach {context cteContext} {before cteContextBefore after cteContextAfter} {
       set cols [cols $fields context "'$context'"]
       set sql "[WITH cteInput cteRecords cteMatch $cteContext]\
-        SELECT $cols FROM $cteContext $WHERE LIMIT :v::maxResults - 1"
+        SELECT $cols FROM $cteContext $WHERE ORDER BY id LIMIT :v::maxResults - 1"
       set $context [db eval $sql]
       incr matchLines [expr {[llength [set $context]] / $numFields}]
     }
