@@ -28,6 +28,7 @@ package require sherdog
 package require bestfightodds
 package require chanlog
 package require tags
+package require keepalive
 
 namespace eval ::fights {
 
@@ -87,6 +88,7 @@ proc init {} {
 
     ::chanlog::init
     ::tags::init
+    ::keepalive::start
     return 0
 }
 
