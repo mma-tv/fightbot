@@ -2182,8 +2182,8 @@ proc help {unick host handle dest text} {
         - {.findfight [f1RE [vs f2RE]][@ eventRE] .................. Show info for matching fights}
         @ {.poll <index> ........................................... Start polling for selected fight index}
         @ {.stop [minutes] ......................................... Stop polling immediately or after specified minutes}
-        @ {.setresult <index> <1|2|draw|nc|nd> [notes] ............. Set result of fight at index}
-        @ {.sayresult <1|2|draw|nc|nd> [notes] ..................... Announce result of last announced fight}
+        @ {.setresult <index> <1|2|a|b|draw|nc|nd> [notes] ......... Set result of fight at index}
+        @ {.sayresult <1|2|a|b|draw|nc|nd> [notes] ................. Announce result of last announced fight}
         @ {.saydraw [notes] ........................................ Alias for .sayresult draw}
         @ {.saync [notes] .......................................... Alias for .sayresult nc}
         @ {.saynd [notes] .......................................... Alias for .sayresult nd}
