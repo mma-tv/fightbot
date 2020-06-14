@@ -999,7 +999,9 @@ proc togglePoll {state} {
 proc endPoll {} {
     variable poll
     variable pollTimer
+    variable stopTimer
     catch {killutimer $pollTimer}
+    catch {killutimer $stopTimer}
     togglePoll "off"
 
     if {[info exists poll(current)]} {
