@@ -51,10 +51,11 @@ variable minBestPicks    5             ;# min number of picks to qualify for win
 variable maxPublicLines  5             ;# limit number of lines that can be dumped to channel
 variable defaultColSizes {* * * 19 3 * 0} ;# default column widths for .sherdog output
 
-variable scriptVersion "1.6.5"
+variable scriptVersion "1.6.6"
 variable ns [namespace current]
 variable poll
 variable pollTimer
+variable stopTimer
 variable users
 variable imports
 
@@ -1143,7 +1144,17 @@ mbind {msg pub} $adminFlag {.poll} ${ns}::startPoll
 proc stopPoll {unick host handle dest text} {
     if {![onPollChan $unick]} { return 0 }
 
-    endPoll
+    variable ns
+    variable stopTimer
+    catch {killutimer $stopTimer}
+
+    set minutes [string trim $text]
+    if {[string is digit -strict $minutes]} {
+      set stopTimer [utimer [expr {$minutes * 60}] [list ${ns}::endPoll]]
+      send $unick $dest "Poll is now scheduled to stop after $minutes minute[s $minutes]."
+    } else {
+      endPoll
+    }
     return 1
 }
 mbind {msg pub} $adminFlag {.stop} ${ns}::stopPoll
@@ -2168,7 +2179,7 @@ proc help {unick host handle dest text} {
         @ {.unlock <index> ......................................... Unlock fight at index to allow .pick on it}
         - {.findfight [f1RE [vs f2RE]][@ eventRE] .................. Show info for matching fights}
         @ {.poll <index> ........................................... Start polling for selected fight index}
-        @ {.stop ................................................... Stop polling}
+        @ {.stop [minutes] ......................................... Stop polling immediately or after specified minutes}
         @ {.setresult <index> <1|2|draw|nc|nd> [notes] ............. Set result of fight at index}
         @ {.sayresult <1|2|draw|nc|nd> [notes] ..................... Announce result of last announced fight}
         @ {.saydraw [notes] ........................................ Alias for .sayresult draw}
